@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mijn Foto Album</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f0f0; margin: 0; padding: 20px; }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        .photo-card { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .photo-card img { width: 100%; border-radius: 4px; }
+        .photo-card h3 { margin: 10px 0 5px; font-size: 1.1em; }
+        .photo-card p { font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+    <h1 id="album-title">Laden...</h1>
+    <p id="album-info"></p>
+    <div id="gallery" class="gallery"></div>
+
+    <script>
+        async function loadAlbum() {
+            const albumId = new URLSearchParams(window.location.search).get('albumId') || '1';
+            // In een echte setup voeg je hier de 'Authorization: Bearer <ID_TOKEN>' header toe
+            const response = await fetch(`https://jouw-api-id.execute-api.eu-west-1.amazonaws.com/prod/album?albumId=${albumId}`);
+
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('album-title').innerText = data.album.naam;
+                document.getElementById('album-info').innerText = `${data.album.locatie} - ${data.album.datum}`;
+
+                const gallery = document.getElementById('gallery');
+                data.photos.forEach(photo => {
+                    const card = document.createElement('div');
+                    card.className = 'photo-card';
+                    card.innerHTML = `
+                        <img src="${photo.preSignedUrl}" alt="${photo.titel}">
+                        <h3>${photo.titel}</h3>
+                        <p>${photo.datum}</p>
+                    `;
+                    gallery.appendChild(card);
+                });
+            } else {
+                document.getElementById('album-title').innerText = "Toegang geweigerd of album niet gevonden.";
+            }
+        }
+        loadAlbum();
+    </script>
+</body>
+</html>
