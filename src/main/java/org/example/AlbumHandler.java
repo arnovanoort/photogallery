@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -48,13 +49,44 @@ public class AlbumHandler implements RequestHandler<APIGatewayProxyRequestEvent,
     @SneakyThrows
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        // 1. Album ID uit query parameters (default naar "1")
-        String albumId = "1";
-        if (request != null && request.getQueryStringParameters() != null && request.getQueryStringParameters().containsKey("albumId")) {
+        String path = request.getPath();
+
+        if ("/albums".equals(path)) {
+            return handleGetAllAlbums();
+        } else if ("/album".equals(path)) {
+            return handleGetSingleAlbum(request);
+        } else {
+            return new APIGatewayProxyResponseEvent()
+                    .withStatusCode(400)
+                    .withBody("Onbekende route: " + path);
+        }
+    }
+
+    @SneakyThrows
+    private APIGatewayProxyResponseEvent handleGetAllAlbums() {
+        DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
+        List<Album> allAlbums = new ArrayList<>();
+
+        // Scan is duur, maar voor een kleine lijst albums acceptabel.
+        // Beter is een GSI als de lijst groot wordt.
+        albumTable.scan().items().forEach(allAlbums::add);
+
+        return new APIGatewayProxyResponseEvent()
+                .withStatusCode(200)
+                .withHeaders(Map.of(
+                        "Content-Type", "application/json",
+                        "Access-Control-Allow-Origin", "*"
+                ))
+                .withBody(objectMapper.writeValueAsString(allAlbums));
+    }
+
+    @SneakyThrows
+    private APIGatewayProxyResponseEvent handleGetSingleAlbum(APIGatewayProxyRequestEvent request) {
+        String albumId = "1"; // Default waarde
+        if (request.getQueryStringParameters() != null && request.getQueryStringParameters().containsKey("albumId")) {
             albumId = request.getQueryStringParameters().get("albumId");
         }
 
-        // 2. Metadata ophalen (Album POJO)
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
         Album album = albumTable.getItem(Key.builder().partitionValue("ALBUM#" + albumId).sortValue("METADATA").build());
 
@@ -64,16 +96,13 @@ public class AlbumHandler implements RequestHandler<APIGatewayProxyRequestEvent,
                     .withBody("Album niet gevonden");
         }
 
-        // 3. Foto's ophalen (Photo POJO's via Query)
         DynamoDbTable<Photo> photoTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Photo.class));
         List<Photo> photos = photoTable.query(QueryConditional.sortBeginsWith(
                 Key.builder().partitionValue("ALBUM#" + albumId).sortValue("PHOTO#").build()))
                 .items().stream().collect(Collectors.toList());
 
-        // 4. Pre-signed URL's genereren voor elke foto
         photos.forEach(photo -> photo.setPreSignedUrl(generatePresignedUrl(photo.getS3FileName())));
 
-        // 5. Response bouwen
         AlbumResponse responseBody = AlbumResponse.builder()
                 .album(album)
                 .photos(photos)
@@ -105,7 +134,7 @@ public class AlbumHandler implements RequestHandler<APIGatewayProxyRequestEvent,
             PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
             return presignedRequest.url().toString();
         } catch (Exception e) {
-            return null; // Of log de fout
+            return null;
         }
     }
 }

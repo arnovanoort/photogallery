@@ -1,9 +1,9 @@
 # 1. S3 Bucket voor foto's
 resource "aws_s3_bucket" "photo_bucket" {
-  bucket = "yolo-photobook" # Pas dit aan naar een unieke naam!
+  bucket = "yolo-photobook" # Houd deze naam gelijk aan wat je al gedeployed hebt!
 }
 
-# Blokkeer publieke toegang (veiligheid eerst)
+# Blokkeer publieke toegang
 resource "aws_s3_bucket_public_access_block" "photo_bucket_block" {
   bucket                  = aws_s3_bucket.photo_bucket.id
   block_public_acls       = true
@@ -12,7 +12,7 @@ resource "aws_s3_bucket_public_access_block" "photo_bucket_block" {
   restrict_public_buckets = true
 }
 
-# 2. DynamoDB Tabel (Single Table Design)
+# 2. DynamoDB Tabel
 resource "aws_dynamodb_table" "photobook_table" {
   name           = "PhotobookData"
   billing_mode   = "PAY_PER_REQUEST"
@@ -40,14 +40,12 @@ resource "aws_lambda_function" "album_handler" {
   memory_size      = 512
   timeout          = 30
 
-  # Zorgt dat Terraform wacht tot de JAR is gebouwd
   source_code_hash = fileexists("target/photobook-1.0-SNAPSHOT.jar") ? filebase64sha256("target/photobook-1.0-SNAPSHOT.jar") : null
 
   environment {
     variables = {
       TABLE_NAME      = aws_dynamodb_table.photobook_table.name
       BUCKET_NAME     = aws_s3_bucket.photo_bucket.id
-      ALLOWED_FRIENDS = "jouwemail@gmail.com"
     }
   }
 }
@@ -84,7 +82,7 @@ resource "aws_iam_policy" "lambda_s3_dynamo_policy" {
         Resource = "${aws_s3_bucket.photo_bucket.arn}/*"
       },
       {
-        Action   = ["dynamodb:GetItem", "dynamodb:Query"]
+        Action   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:Scan"] # Scan toegevoegd
         Effect   = "Allow"
         Resource = aws_dynamodb_table.photobook_table.arn
       }
@@ -95,4 +93,60 @@ resource "aws_iam_policy" "lambda_s3_dynamo_policy" {
 resource "aws_iam_role_policy_attachment" "lambda_s3_dynamo_attach" {
   role       = aws_iam_role.lambda_exec_role.name
   policy_arn = aws_iam_policy.lambda_s3_dynamo_policy.arn
+}
+
+# 5. API Gateway (HTTP API)
+resource "aws_apigatewayv2_api" "photo_api" {
+  name          = "photobook-api"
+  protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = ["*"]
+    allow_methods = ["GET", "OPTIONS"]
+    allow_headers = ["*"]
+    max_age       = 300
+  }
+}
+
+resource "aws_apigatewayv2_stage" "prod" {
+  api_id      = aws_apigatewayv2_api.photo_api.id
+  name        = "prod"
+  auto_deploy = true
+}
+
+resource "aws_apigatewayv2_integration" "lambda_integration" {
+  api_id           = aws_apigatewayv2_api.photo_api.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.album_handler.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "album_route" {
+  api_id    = aws_apigatewayv2_api.photo_api.id
+  route_key = "GET /album"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "albums_route" {
+  api_id    = aws_apigatewayv2_api.photo_api.id
+  route_key = "GET /albums"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+# Lambda permissie om aangeroepen te worden door API Gateway
+resource "aws_lambda_permission" "api_gw_lambda" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.album_handler.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.photo_api.execution_arn}/*/*"
+}
+
+# Output de API URL
+output "api_url_album" {
+  value = "${aws_apigatewayv2_stage.prod.invoke_url}/album"
+}
+
+output "api_url_albums" {
+  value = "${aws_apigatewayv2_stage.prod.invoke_url}/albums"
 }
