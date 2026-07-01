@@ -66,6 +66,7 @@ class AlbumHandlerTest {
 
         APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
         request.setPath("/album");
+        request.setHttpMethod("GET");
         request.setQueryStringParameters(Map.of("albumId", "99"));
 
         APIGatewayProxyResponseEvent response = handler.handleRequest(request, context);
@@ -80,6 +81,7 @@ class AlbumHandlerTest {
 
         APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
         request.setPath("/album");
+        request.setHttpMethod("GET");
 
         APIGatewayProxyResponseEvent response = handler.handleRequest(request, context);
 
@@ -109,6 +111,7 @@ class AlbumHandlerTest {
 
         APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent();
         request.setPath("/albums");
+        request.setHttpMethod("GET");
 
         APIGatewayProxyResponseEvent response = handler.handleRequest(request, context);
 

@@ -50,16 +50,30 @@ public class AlbumHandler implements RequestHandler<APIGatewayProxyRequestEvent,
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
         String path = request.getPath();
+        String httpMethod = request.getHttpMethod();
 
         if ("/albums".equals(path)) {
-            return handleGetAllAlbums();
+            if ("GET".equals(httpMethod)) {
+                return handleGetAllAlbums();
+            }
         } else if ("/album".equals(path)) {
-            return handleGetSingleAlbum(request);
-        } else {
-            return new APIGatewayProxyResponseEvent()
-                    .withStatusCode(400)
-                    .withBody("Onbekende route: " + path);
+            if ("GET".equals(httpMethod)) {
+                return handleGetSingleAlbum(request);
+            }
         }
+
+//        if ("GET".equals(httpMethod)) {
+//            if ("/albums".equals(path)) {
+//                return handleGetAllAlbums();
+//            } else if ("/album".equals(path)) {
+//                return handleGetSingleAlbum(request);
+//            }
+//        }
+
+        // Voor alle andere methoden of onbekende paden
+        return new APIGatewayProxyResponseEvent()
+                .withStatusCode(405) // Method Not Allowed
+                .withBody("Methode " + httpMethod + " niet toegestaan voor pad " + path);
     }
 
     @SneakyThrows
