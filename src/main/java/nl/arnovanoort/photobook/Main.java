@@ -1,4 +1,4 @@
-package org.example;
+package nl.arnovanoort.photobook;
 
 public class Main {
     public static void main(String[] args) {

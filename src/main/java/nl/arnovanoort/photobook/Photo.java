@@ -1,4 +1,4 @@
-package org.example;
+package nl.arnovanoort.photobook;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,12 +13,14 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortK
 @NoArgsConstructor
 @AllArgsConstructor
 @DynamoDbBean
-public class Album {
+public class Photo {
     private String albumId;
-    private String metadata;
-    private String naam;
-    private String locatie;
+    private String photoId;
+    private String titel;
+    private String s3FileName;
     private String datum;
+    // Tijdelijk veld voor de Pre-signed URL
+    private String preSignedUrl;
 
     @DynamoDbPartitionKey
     public String getPk() {
@@ -33,10 +35,12 @@ public class Album {
 
     @DynamoDbSortKey
     public String getSk() {
-        return "METADATA";
+        return "PHOTO#" + photoId;
     }
 
     public void setSk(String sk) {
-        // SK is fixed for album metadata
+        if (sk != null && sk.startsWith("PHOTO#")) {
+            this.photoId = sk.substring(6);
+        }
     }
 }
