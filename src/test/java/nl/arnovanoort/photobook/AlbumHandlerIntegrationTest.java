@@ -1,141 +1,76 @@
 package nl.arnovanoort.photobook;
 
-import nl.arnovanoort.photobook.repository.DynamoRepository;
-import nl.arnovanoort.photobook.repository.S3Service;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
+import com.fasterxml.jackson.core.type.TypeReference;
+import lombok.extern.slf4j.Slf4j;
+import nl.arnovanoort.photobook.model.Album;
+import nl.arnovanoort.photobook.dto.AlbumRequest;
+import nl.arnovanoort.photobook.dto.AlbumResponse;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
-import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Slf4j
 @Testcontainers
-class AlbumHandlerIntegrationTest {
+class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
 
-
-    @Container
-    static LocalStackContainer localstack = new LocalStackContainer(
-            DockerImageName.parse("localstack/localstack:3.8.1")
-    ).withServices(LocalStackContainer.Service.DYNAMODB);
-
-    private static DynamoDbClient dynamoDbClient;
-    private static DynamoDbEnhancedClient enhancedClient;
-    private static DynamoRepository dynamoRepository;
-    private static AlbumHandler albumHandler;
-
-    @BeforeAll
-    static void setUp() {
-        dynamoDbClient = DynamoDbClient.builder()
-                .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.DYNAMODB))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())
-                ))
-                .region(Region.of(localstack.getRegion()))
-                .build();
-
-        enhancedClient = DynamoDbEnhancedClient.builder()
-                .dynamoDbClient(dynamoDbClient)
-                .build();
-
-        dynamoRepository = new DynamoRepository(enhancedClient);
-        
-        S3Service mockS3Service = new S3Service() {
-            @Override
-            public String generatePresignedUrl(String s3FileName) {
-                return "https://fake-presigned-url/" + s3FileName;
-            }
-        };
-        
-        albumHandler = new AlbumHandler(dynamoRepository, mockS3Service);
-
-        createTables();
-    }
-
-    @AfterAll
-    static void tearDown() {
-        if (dynamoDbClient != null) {
-            dynamoDbClient.close();
-        }
-    }
-
-    private static void createTables() {
-        try {
-            dynamoDbClient.createTable(builder -> builder
-                    .tableName("Photos")
-                    .attributeDefinitions(
-                            AttributeDefinition.builder()
-                                    .attributeName("PK")
-                                    .attributeType(ScalarAttributeType.S)
-                                    .build(),
-                            AttributeDefinition.builder()
-                                    .attributeName("SK")
-                                    .attributeType(ScalarAttributeType.S)
-                                    .build()
-                    )
-                    .keySchema(keyBuilder -> keyBuilder
-                            .attributeName("PK")
-                            .keyType("HASH")
-                            .build(),
-                            keyBuilder -> keyBuilder
-                                    .attributeName("SK")
-                                    .keyType("RANGE")
-                                    .build()
-                    )
-                    .billingMode("PAY_PER_REQUEST")
-            );
-        } catch (Exception e) {
-            System.out.println("Table might already exist: " + e.getMessage());
-        }
-    }
-
+    /**
+     * This test will fire up a local DynamoDB and S3 and on that
+     * - create a new album
+     * - fetch the created album
+     * - assert the results
+     */
     @Test
     void testCreateAndGetAlbum() {
+        // create new album
+        var createResponse = createTestAlbum();
+        Album createdAlbum = parseResponse(createResponse.getBody(), Album.class);
+
+        // test result
+        assertEquals(201, createResponse.getStatusCode());
+        assertEquals(createdAlbum, testAlbum);
+
+        // fetch created album
+        var getAlbumResponse = albumHandler.handleRequest(
+                createRequest("/album", "GET", null, Map.of("albumId", createdAlbum.getAlbumId())),
+                null
+        );
+
+        log.info("fetch created album response {}", getAlbumResponse.getBody());
+        assertEquals(200, getAlbumResponse.getStatusCode());
+        assertEquals(testAlbumResponse, parseResponse(getAlbumResponse.getBody(), AlbumResponse.class));
+    }
+
+    private APIGatewayV2HTTPResponse createTestAlbum() {
         AlbumRequest albumRequest = AlbumRequest.builder()
-                .naam("Test Album")
-                .datum("2024-01-01")
+                .name(testAlbum.getName())
+                .albumId(albumId)
                 .build();
 
-        var createResponse = albumHandler.handleRequest(
+        var createResult = albumHandler.handleRequest(
                 createRequest("/albums", "POST", albumRequest),
                 null
         );
 
-        assertEquals(201, createResponse.getStatusCode());
-        
-        Album createdAlbum = parseAlbumFromResponse(createResponse.getBody());
-        String albumId = createdAlbum.getAlbumId();
-
-        var getResponse = albumHandler.handleRequest(
-                createRequest("/album", "GET", null, Map.of("albumId", albumId)),
-                null
-        );
-
-        assertEquals(200, getResponse.getStatusCode());
+        return createResult;
     }
 
     @Test
     void testGetAllAlbums() {
+        var createResponse = createTestAlbum();
         var response = albumHandler.handleRequest(
                 createRequest("/albums", "GET", null),
                 null
+
         );
 
         assertEquals(200, response.getStatusCode());
-        assertNotNull(response.getBody());
+        assertEquals(List.of(testAlbum), parseResponse(response.getBody(), new TypeReference<List<Album>>() {}));
     }
 
     @Test
@@ -149,20 +84,26 @@ class AlbumHandlerIntegrationTest {
         assertEquals("Album niet gevonden", response.getBody());
     }
 
-    private com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent createRequest(
+    private APIGatewayV2HTTPEvent createRequest(
             String path, String method, Object body) {
         return createRequest(path, method, body, null);
     }
 
-    private com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent createRequest(
+    private APIGatewayV2HTTPEvent createRequest(
             String path, String method, Object body, java.util.Map<String, String> queryParams) {
-        var request = new com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent();
-        request.setPath(path);
-        request.setHttpMethod(method);
+        var request = new APIGatewayV2HTTPEvent();
+        request.setRawPath(path);
+
+        APIGatewayV2HTTPEvent.RequestContext requestContext = new APIGatewayV2HTTPEvent.RequestContext();
+        APIGatewayV2HTTPEvent.RequestContext.Http http = new APIGatewayV2HTTPEvent.RequestContext.Http();
+        http.setMethod(method);
+        http.setPath(path);
+        requestContext.setHttp(http);
+        request.setRequestContext(requestContext);
         
         if (body != null) {
             try {
-                request.setBody(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body));
+                request.setBody(objectMapper.writeValueAsString(body));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -173,13 +114,5 @@ class AlbumHandlerIntegrationTest {
         }
         
         return request;
-    }
-
-    private Album parseAlbumFromResponse(String responseBody) {
-        try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(responseBody, Album.class);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 }

@@ -1,5 +1,6 @@
 package nl.arnovanoort.photobook.repository;
 
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -7,6 +8,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 
 import java.time.Duration;
 
+@Slf4j
 public class S3Service {
 
     private final String bucketName;
@@ -44,6 +46,7 @@ public class S3Service {
             PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
             return presignedRequest.url().toString();
         } catch (Exception e) {
+            log.error("Failed to generate presigned URL for file '{}' in bucket '{}'", s3FileName, bucketName, e);
             return null;
         }
     }

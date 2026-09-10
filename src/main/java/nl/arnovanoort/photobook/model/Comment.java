@@ -1,4 +1,4 @@
-package nl.arnovanoort.photobook;
+package nl.arnovanoort.photobook.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,30 +13,32 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortK
 @NoArgsConstructor
 @AllArgsConstructor
 @DynamoDbBean
-public class Album {
-    private String photobook;
-    private String albumId;
-    private String metadata;
-    private String naam;
-    private String datum;
+public class Comment {
+    private String photoId;
+    private String commentId;
+    private String name;
+    private String text;
+    private String date;
 
     @DynamoDbPartitionKey
     public String getPk() {
-        return photobook + "#ALBUM";
+        return "PHOTO#" + photoId;
     }
 
     public void setPk(String pk) {
-        if (pk != null && pk.startsWith("ALBUM#")) {
-            this.albumId = pk.substring(6);
+        if (pk != null && pk.startsWith("PHOTO#")) {
+            this.photoId = pk.substring(6);
         }
     }
 
     @DynamoDbSortKey
     public String getSk() {
-        return "METADATA";
+        return "COMMENT#" + commentId;
     }
 
     public void setSk(String sk) {
-        // SK is fixed for album metadata
+        if (sk != null && sk.startsWith("COMMENT#")) {
+            this.commentId = sk.substring(8);
+        }
     }
 }

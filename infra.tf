@@ -34,9 +34,9 @@ resource "aws_dynamodb_table" "photobook_table" {
 resource "aws_lambda_function" "album_handler" {
   function_name    = "photo-album-handler"
   filename         = "target/photobook-1.0-SNAPSHOT.jar"
-  handler          = "org.example.AlbumHandler::handleRequest"
+  handler          = "nl.arnovanoort.photobook.AlbumHandler::handleRequest"
   runtime          = "java21"
-  role             = aws_iam_role.lambda_exec_role.arn
+  role             = aws_iam_role.photobook_lambda_exec_role.arn
   memory_size      = 512
   timeout          = 30
 
@@ -51,8 +51,8 @@ resource "aws_lambda_function" "album_handler" {
 }
 
 # 4. IAM Role & Policies
-resource "aws_iam_role" "lambda_exec_role" {
-  name = "lambda_exec_role"
+resource "aws_iam_role" "photobook_lambda_exec_role" {
+  name = "photobook_lambda_exec_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -67,7 +67,7 @@ resource "aws_iam_role" "lambda_exec_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
-  role       = aws_iam_role.lambda_exec_role.name
+  role       = aws_iam_role.photobook_lambda_exec_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
@@ -82,7 +82,7 @@ resource "aws_iam_policy" "lambda_s3_dynamo_policy" {
         Resource = "${aws_s3_bucket.photo_bucket.arn}/*"
       },
       {
-        Action   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:Scan"] # Scan toegevoegd
+        Action   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:Scan", "dynamodb:PutItem"]
         Effect   = "Allow"
         Resource = aws_dynamodb_table.photobook_table.arn
       }
@@ -91,7 +91,7 @@ resource "aws_iam_policy" "lambda_s3_dynamo_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_s3_dynamo_attach" {
-  role       = aws_iam_role.lambda_exec_role.name
+  role       = aws_iam_role.photobook_lambda_exec_role.name
   policy_arn = aws_iam_policy.lambda_s3_dynamo_policy.arn
 }
 
@@ -102,15 +102,15 @@ resource "aws_apigatewayv2_api" "photo_api" {
 
   cors_configuration {
     allow_origins = ["*"]
-    allow_methods = ["GET", "OPTIONS"]
+    allow_methods = ["GET", "OPTIONS", "POST"]
     allow_headers = ["*"]
     max_age       = 300
   }
 }
 
-resource "aws_apigatewayv2_stage" "prod" {
+resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.photo_api.id
-  name        = "prod"
+  name        = "$default"
   auto_deploy = true
 }
 
@@ -123,13 +123,13 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
 
 resource "aws_apigatewayv2_route" "album_route" {
   api_id    = aws_apigatewayv2_api.photo_api.id
-  route_key = "GET /album"
+  route_key = "ANY /album"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
 resource "aws_apigatewayv2_route" "albums_route" {
   api_id    = aws_apigatewayv2_api.photo_api.id
-  route_key = "GET /albums"
+  route_key = "ANY /albums"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
@@ -144,9 +144,40 @@ resource "aws_lambda_permission" "api_gw_lambda" {
 
 # Output de API URL
 output "api_url_album" {
-  value = "${aws_apigatewayv2_stage.prod.invoke_url}/album"
+  value = "${aws_apigatewayv2_stage.default.invoke_url}/album"
 }
 
 output "api_url_albums" {
-  value = "${aws_apigatewayv2_stage.prod.invoke_url}/albums"
+  value = "${aws_apigatewayv2_stage.default.invoke_url}/albums"
+}
+
+# Automatic resource import blocks to sync existing AWS infrastructure into state
+import {
+  to = aws_s3_bucket.photo_bucket
+  id = "yolo-photobook"
+}
+
+import {
+  to = aws_dynamodb_table.photobook_table
+  id = "PhotobookData"
+}
+
+import {
+  to = aws_iam_role.photobook_lambda_exec_role
+  id = "lambda_exec_role"
+}
+
+import {
+  to = aws_lambda_function.album_handler
+  id = "photo-album-handler"
+}
+
+import {
+  to = aws_iam_policy.lambda_s3_dynamo_policy
+  id = "arn:aws:iam::455335916326:policy/LambdaS3DynamoPolicy"
+}
+
+import {
+  to = aws_lambda_permission.api_gw_lambda
+  id = "photo-album-handler/AllowAPIGatewayInvoke"
 }

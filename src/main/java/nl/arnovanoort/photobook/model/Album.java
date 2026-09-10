@@ -1,44 +1,47 @@
-package nl.arnovanoort.photobook;
+package nl.arnovanoort.photobook.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
+
+import java.time.LocalDateTime;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @DynamoDbBean
-public class Comment {
-    private String photoId;
-    private String commentId;
-    private String naam;
-    private String tekst;
-    private String datum;
+public class Album {
+    private String photobook;
+    private String albumId;
+    private String name;
+    private LocalDateTime date;
+
+    private String pk;
+    private String sk;
 
     @DynamoDbPartitionKey
+    @DynamoDbAttribute("pk")
     public String getPk() {
-        return "PHOTO#" + photoId;
+        return pk;
     }
 
     public void setPk(String pk) {
-        if (pk != null && pk.startsWith("PHOTO#")) {
-            this.photoId = pk.substring(6);
-        }
+        this.pk = pk;
     }
 
     @DynamoDbSortKey
+    @DynamoDbAttribute("sk")
     public String getSk() {
-        return "COMMENT#" + commentId;
+        return sk;
     }
 
     public void setSk(String sk) {
-        if (sk != null && sk.startsWith("COMMENT#")) {
-            this.commentId = sk.substring(8);
-        }
+        this.sk = sk;
     }
 }

@@ -2,47 +2,67 @@ package nl.arnovanoort.photobook;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import nl.arnovanoort.photobook.model.Album;
+import nl.arnovanoort.photobook.dto.AlbumRequest;
+import nl.arnovanoort.photobook.dto.AlbumResponse;
+import nl.arnovanoort.photobook.model.Photo;
 import nl.arnovanoort.photobook.repository.DynamoRepository;
 import nl.arnovanoort.photobook.repository.S3Service;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
-public class AlbumHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+@Slf4j
+public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
-    public final static String PHOTOBOOK_NAME = "Arno"; // replace in next phase with requested photobook
+    public final static String USERNAME = "Arno"; // replace in next phase with name fetched from cognito
 
     private final S3Service s3Service;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     protected DynamoRepository dynamoRepository;
+    private Clock clock;
+
     // Default constructor voor AWS Lambda
     public AlbumHandler() {
+        this.dynamoRepository = new DynamoRepository();
         this.s3Service = new S3Service();
+        this.clock = Clock.systemDefaultZone();
     }
 
     // Constructor voor Unit Testing (Dependency Injection)
-    public AlbumHandler(DynamoRepository dynamoRepository, S3Service s3Service) {
+    public AlbumHandler(DynamoRepository dynamoRepository, S3Service s3Service, Clock clock) {
         this.dynamoRepository = dynamoRepository;
         this.s3Service = s3Service;
+        this.clock = clock;
     }
 
-    @SneakyThrows
+    /* needs refactoring to deal with individual api calls from the lambdas */
     @Override
-    public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        String path = request.getPath();
-        String httpMethod = request.getHttpMethod();
+    public APIGatewayV2HTTPResponse handleRequest(APIGatewayV2HTTPEvent request, Context context) {
+        String path = request.getRawPath();
+        String httpMethod = (request.getRequestContext() != null && request.getRequestContext().getHttp() != null)
+                ? request.getRequestContext().getHttp().getMethod()
+                : null;
+        log.info("Received request: {} {}", httpMethod, path);
 
         if ("/albums".equals(path)) {
             if ("GET".equals(httpMethod)) {
                 return handleGetAllAlbums();
-            }else if("POST".equals(httpMethod)){
-                AlbumRequest albumRequest = objectMapper.readValue(request.getBody(), AlbumRequest.class);
-                return handleCreateAlbum(albumRequest);
-
+            } else if ("POST".equals(httpMethod)) {
+                try {
+                    AlbumRequest albumRequest = objectMapper.readValue(request.getBody(), AlbumRequest.class);
+                    return handleCreateAlbum(albumRequest);
+                } catch (Exception e) {
+                    log.error("Failed to parse request body: {}", request.getBody(), e);
+                    return createResponse("Invalid JSON body", 400);
+                }
             }
         } else if ("/album".equals(path)) {
             if ("GET".equals(httpMethod)) {
@@ -50,89 +70,106 @@ public class AlbumHandler implements RequestHandler<APIGatewayProxyRequestEvent,
             }
         }
 
-        // Voor alle andere methoden of onbekende paden
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(405) // Method Not Allowed
-                .withBody("Methode " + httpMethod + " niet toegestaan voor pad " + path);
-    }
-
-    @SneakyThrows
-    private APIGatewayProxyResponseEvent handleGetAllAlbums() {
-        List<Album> allAlbums = dynamoRepository.getAlbums(PHOTOBOOK_NAME);
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(200)
-                .withHeaders(Map.of(
-                        "Content-Type", "application/json",
-                        "Access-Control-Allow-Origin", "*"
-                ))
-                .withBody(objectMapper.writeValueAsString(allAlbums));
-    }
-
-    @SneakyThrows
-    private APIGatewayProxyResponseEvent handleGetSingleAlbum(APIGatewayProxyRequestEvent request) {
-        String albumId = "1"; // Default waarde
-        if (request.getQueryStringParameters() != null && request.getQueryStringParameters().containsKey("albumId")) {
-            albumId = request.getQueryStringParameters().get("albumId");
-        }
-
-        Album album = dynamoRepository.getAlbum("ALBUM#" + albumId);
-
-        if (album == null) {
-            return create404Response("Album niet gevonden");
-        }
-
-        List<Photo> photos = dynamoRepository.getPhotos("ALBUM#" + albumId);
-
-        photos.forEach(photo -> photo.setPreSignedUrl(s3Service.generatePresignedUrl(photo.getS3FileName())));
-
-        AlbumResponse responseBody = AlbumResponse.builder()
-                .album(album)
-                .photos(photos)
+        log.warn("Method or path not supported: {} {}", httpMethod, path);
+        // For other methods or unknown paths
+        return APIGatewayV2HTTPResponse.builder()
+                .withStatusCode(405)
+                .withBody("Methode " + httpMethod + " niet toegestaan voor pad " + path)
                 .build();
-        return create200Response(responseBody);
     }
 
-    @SneakyThrows
-    private APIGatewayProxyResponseEvent handleCreateAlbum(AlbumRequest albumRequest) {
-        String albumId = String.valueOf(System.currentTimeMillis());
+    private APIGatewayV2HTTPResponse handleGetAllAlbums() {
+        log.info("Fetching all albums for user: {}", USERNAME);
+        List<Album> allAlbums = dynamoRepository.getAlbums(USERNAME);
+        log.info("Retrieved {} albums for user: {}", allAlbums.size(), USERNAME);
+        return create200Response(allAlbums);
+    }
+
+    private Optional<String> getAlbumId(APIGatewayV2HTTPEvent request){
+        if (request.getQueryStringParameters() != null && request.getQueryStringParameters().containsKey("albumId")) {
+            return Optional.ofNullable(request.getQueryStringParameters().get("albumId"));
+        } else {
+            return Optional.empty();
+        }
+    }
+    private APIGatewayV2HTTPResponse handleGetSingleAlbum(APIGatewayV2HTTPEvent request) {
+        Optional<String> albumId = getAlbumId(request);
+        log.info("Fetching album: {} for user: {}", albumId, USERNAME);
+
+        return albumId
+            // retrieve album with given id
+            .map(id -> dynamoRepository.getAlbum(USERNAME, id))
+            // extract album and process fotos.
+            .map( album -> {
+                List<Photo> photos = dynamoRepository.getPhotos("ALBUM#" + album.getAlbumId());
+                log.info("Found {} photos for album: {}", photos.size(), album.getAlbumId());
+
+                photos.forEach(photo -> photo.setPreSignedUrl(s3Service.generatePresignedUrl(photo.getS3FileName())));
+
+                AlbumResponse responseBody = AlbumResponse.builder()
+                        .album(album)
+                        .photos(photos)
+                        .build();
+                return create200Response(responseBody);
+            }).orElseGet(() -> {
+                log.warn("Album not found: {} for user: {}", albumId.orElse("unknown"), USERNAME);
+                return create404Response("Album " + albumId.orElse("unknown") + "not found");
+            });
+    }
+
+    private APIGatewayV2HTTPResponse handleCreateAlbum(AlbumRequest albumRequest) {
+        String albumId = Optional.ofNullable(albumRequest.getAlbumId())
+                .orElseGet(() -> java.util.UUID.randomUUID().toString());
+
+        log.info("Creating album: name='{}', albumId='{}' for user: {}", albumRequest.getName(), albumId, USERNAME);
 
         Album album = Album.builder()
-                .photobook(PHOTOBOOK_NAME)
+                .photobook(USERNAME)
                 .albumId(albumId)
-                .metadata("METADATA")
-                .naam(albumRequest.getNaam())
-                .datum(albumRequest.getDatum())
+                .name(albumRequest.getName())
+                .date(LocalDateTime.now(clock))
+                .pk("PHOTOBOOK#" + USERNAME)
+                .sk("ALBUM#" + albumId)
                 .build();
         dynamoRepository.createAlbum(album);
+        log.info("Successfully created album: {}", albumId);
 
         return create201Response(album);
     }
 
-
-    @SneakyThrows
-    private APIGatewayProxyResponseEvent create200Response(Object responseBody){
+    private APIGatewayV2HTTPResponse create200Response(Object responseBody) {
         return createResponse(responseBody, 200);
     }
-    @SneakyThrows
-    private APIGatewayProxyResponseEvent create201Response(Object responseBody){
+
+    private APIGatewayV2HTTPResponse create201Response(Object responseBody) {
         return createResponse(responseBody, 201);
     }
 
-    @SneakyThrows
-    private APIGatewayProxyResponseEvent create404Response(Object responseBody){
+    private APIGatewayV2HTTPResponse create404Response(Object responseBody) {
         return createResponse(responseBody, 404);
     }
 
-    @SneakyThrows
-    private APIGatewayProxyResponseEvent createResponse(Object responseBody, int statusCode){
-        String body = responseBody instanceof String ? (String) responseBody : objectMapper.writeValueAsString(responseBody);
-        return new APIGatewayProxyResponseEvent()
+    private APIGatewayV2HTTPResponse createResponse(Object responseBody, int statusCode) {
+        String body;
+        if (responseBody instanceof String stringBody) {
+            body = stringBody;
+        } else {
+            try {
+                body = objectMapper.writeValueAsString(responseBody);
+            } catch (Exception e) {
+                log.error("Failed to serialize response body", e);
+                body = "{\"error\": \"Internal Server Error\"}";
+                statusCode = 500;
+            }
+        }
+
+        return APIGatewayV2HTTPResponse.builder()
                 .withStatusCode(statusCode)
                 .withHeaders(Map.of(
                         "Content-Type", "application/json",
                         "Access-Control-Allow-Origin", "*"
                 ))
-                .withBody(body);
-
+                .withBody(body)
+                .build();
     }
 }

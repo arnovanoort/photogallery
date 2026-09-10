@@ -1,12 +1,10 @@
 package nl.arnovanoort.photobook.repository;
 
 import com.amazonaws.services.lambda.runtime.Context;
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import nl.arnovanoort.photobook.Album;
+import nl.arnovanoort.photobook.model.Album;
 import nl.arnovanoort.photobook.AlbumHandler;
-import nl.arnovanoort.photobook.Photo;
+import nl.arnovanoort.photobook.model.Photo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,14 +13,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.core.pagination.sync.SdkIterable;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
-import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.PageIterable;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Iterator; // Import Iterator
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,8 +31,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DynamoRepositoryTest {
 
-    private DynamoRepository handler;
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private DynamoRepository repository;
+    private ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Mock
     private DynamoDbEnhancedClient mockEnhancedClient;
@@ -50,7 +47,7 @@ class DynamoRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        handler = new DynamoRepository(mockEnhancedClient);
+        repository = new DynamoRepository(mockEnhancedClient);
         when(mockEnhancedClient.table(anyString(), any(TableSchema.class)))
                 .thenAnswer(invocation -> {
                     TableSchema<?> schema = invocation.getArgument(1);
@@ -67,8 +64,8 @@ class DynamoRepositoryTest {
     @Test
     @SuppressWarnings("unchecked")
     void handleRequest_GetAllAlbums_ReturnsAlbumsList() throws Exception {
-        Album album1 = Album.builder().photobook(AlbumHandler.PHOTOBOOK_NAME + "#Album").albumId("1").naam("Vakantie 2024").datum("2024-07-15").build();
-        Album album2 = Album.builder().photobook(AlbumHandler.PHOTOBOOK_NAME + "#Album").albumId("2").naam("Familie Feest").datum("2024-08-01").build();
+        Album album1 = Album.builder().photobook(AlbumHandler.USERNAME + "#Album").albumId("1").name("Vakantie 2024").date(LocalDateTime.now()).build();
+        Album album2 = Album.builder().photobook(AlbumHandler.USERNAME + "#Album").albumId("2").name("Familie Feest").date(LocalDateTime.now()).build();
         List<Album> albums = List.of(album1, album2);
 
         // Correcte manier om een SdkIterable te maken van een List
@@ -86,7 +83,7 @@ class DynamoRepositoryTest {
         when(mockAlbumTable.query(any(QueryConditional.class))).thenReturn(mockPageIterable);
 
 
-        List<Album> albumsResult = handler.getAlbums(AlbumHandler.PHOTOBOOK_NAME);
+        List<Album> albumsResult = repository.getAlbums(AlbumHandler.USERNAME);
 
         // De handler retourneert momenteel een List<Album> direct, niet verpakt in AlbumsListResponse
         assertEquals(albums, albumsResult);
