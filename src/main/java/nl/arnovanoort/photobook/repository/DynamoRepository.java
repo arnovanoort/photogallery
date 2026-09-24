@@ -1,6 +1,7 @@
 package nl.arnovanoort.photobook.repository;
 
 import lombok.extern.slf4j.Slf4j;
+import nl.arnovanoort.photobook.dto.AlbumImport;
 import nl.arnovanoort.photobook.model.Album;
 import nl.arnovanoort.photobook.model.Photo;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
@@ -10,7 +11,9 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -69,4 +72,25 @@ public class DynamoRepository {
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
         albumTable.putItem(album);
     }
+
+    private void createPhoto(Photo photo) {
+        log.info("Saving photo '{}' to DynamoDB table {}", photo.getS3FileName(), TABLE_NAME);
+        DynamoDbTable<Photo> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Photo.class));
+        albumTable.putItem(photo);
+    }
+
+    public void importAlbums(AlbumImport albumImport, String photobook) {
+        Album album = albumImport.getAlbum(photobook);
+        createAlbum(album);
+
+        List<Photo> photos = albumImport.getPhotos(album.getAlbumId());
+        photos.forEach(photo -> {
+            log.info("writing photo {} to dynamo", photo);
+            createPhoto(photo);
+        });
+
+
+
+    }
+
 }

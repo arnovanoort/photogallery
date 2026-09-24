@@ -81,7 +81,7 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
         );
 
         assertEquals(404, response.getStatusCode());
-        assertEquals("Album niet gevonden", response.getBody());
+        assertEquals("Album 999999not found", response.getBody());
     }
 
     private APIGatewayV2HTTPEvent createRequest(

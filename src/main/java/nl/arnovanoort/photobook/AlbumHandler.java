@@ -6,6 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import nl.arnovanoort.photobook.dto.AlbumImport;
 import nl.arnovanoort.photobook.model.Album;
 import nl.arnovanoort.photobook.dto.AlbumRequest;
 import nl.arnovanoort.photobook.dto.AlbumResponse;
@@ -68,6 +69,11 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
             if ("GET".equals(httpMethod)) {
                 return handleGetSingleAlbum(request);
             }
+        } else if ("/import".equals(path)) {
+            List<AlbumImport> albums = s3Service.listBuckets();
+            albums.forEach(importAlbum -> {
+                dynamoRepository.importAlbums(importAlbum,USERNAME);
+            });
         }
 
         log.warn("Method or path not supported: {} {}", httpMethod, path);

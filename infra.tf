@@ -77,7 +77,12 @@ resource "aws_iam_policy" "lambda_s3_dynamo_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action   = ["s3:GetObject"]
+        Action   = "s3:ListBucket"
+        Effect   = "Allow"
+        Resource = aws_s3_bucket.photo_bucket.arn
+      },
+      {
+        Action   = "s3:GetObject"
         Effect   = "Allow"
         Resource = "${aws_s3_bucket.photo_bucket.arn}/*"
       },
@@ -102,7 +107,7 @@ resource "aws_apigatewayv2_api" "photo_api" {
 
   cors_configuration {
     allow_origins = ["*"]
-    allow_methods = ["GET", "OPTIONS", "POST"]
+    allow_methods = ["GET", "POST", "PUT"]
     allow_headers = ["*"]
     max_age       = 300
   }
@@ -133,6 +138,11 @@ resource "aws_apigatewayv2_route" "albums_route" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
+resource "aws_apigatewayv2_route" "import_route" {
+  api_id    = aws_apigatewayv2_api.photo_api.id
+  route_key = "ANY /import"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
 # Lambda permissie om aangeroepen te worden door API Gateway
 resource "aws_lambda_permission" "api_gw_lambda" {
   statement_id  = "AllowAPIGatewayInvoke"
