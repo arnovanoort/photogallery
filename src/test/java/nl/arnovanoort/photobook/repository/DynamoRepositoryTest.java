@@ -64,8 +64,8 @@ class DynamoRepositoryTest {
     @Test
     @SuppressWarnings("unchecked")
     void handleRequest_GetAllAlbums_ReturnsAlbumsList() throws Exception {
-        Album album1 = Album.builder().photobook(AlbumHandler.USERNAME + "#Album").albumId("1").name("Vakantie 2024").date(LocalDateTime.now()).build();
-        Album album2 = Album.builder().photobook(AlbumHandler.USERNAME + "#Album").albumId("2").name("Familie Feest").date(LocalDateTime.now()).build();
+        Album album1 = Album.builder().photobook(AlbumHandler.GALLERY + "#Album").albumId("1").name("Vakantie 2024").date(LocalDateTime.now()).build();
+        Album album2 = Album.builder().photobook(AlbumHandler.GALLERY + "#Album").albumId("2").name("Familie Feest").date(LocalDateTime.now()).build();
         List<Album> albums = List.of(album1, album2);
 
         // Correcte manier om een SdkIterable te maken van een List
@@ -83,7 +83,7 @@ class DynamoRepositoryTest {
         when(mockAlbumTable.query(any(QueryConditional.class))).thenReturn(mockPageIterable);
 
 
-        List<Album> albumsResult = repository.getAlbums(AlbumHandler.USERNAME);
+        List<Album> albumsResult = repository.getAlbums(AlbumHandler.GALLERY);
 
         // De handler retourneert momenteel een List<Album> direct, niet verpakt in AlbumsListResponse
         assertEquals(albums, albumsResult);

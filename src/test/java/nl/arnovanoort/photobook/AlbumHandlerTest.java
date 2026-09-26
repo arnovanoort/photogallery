@@ -40,7 +40,7 @@ class AlbumHandlerTest {
 
     @Test
     void handleRequest_AlbumNotFound_Returns404() {
-        when(mockDynamoRepository.getAlbum(AlbumHandler.USERNAME, "ALBUM#99")).thenReturn(null);
+        when(mockDynamoRepository.getAlbum(AlbumHandler.GALLERY, "ALBUM#99")).thenReturn(null);
 
         APIGatewayV2HTTPEvent request = new APIGatewayV2HTTPEvent();
         request.setRawPath("/album");

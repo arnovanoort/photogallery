@@ -7,6 +7,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import nl.arnovanoort.photobook.dto.AlbumImport;
+import nl.arnovanoort.photobook.dto.GalleryResponse;
 import nl.arnovanoort.photobook.model.Album;
 import nl.arnovanoort.photobook.dto.AlbumRequest;
 import nl.arnovanoort.photobook.dto.AlbumResponse;
@@ -23,7 +24,7 @@ import java.util.Optional;
 @Slf4j
 public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
-    public final static String USERNAME = "Arno"; // replace in next phase with name fetched from cognito
+    public final static String GALLERY = "Arno"; // replace in next phase with name fetched from cognito
 
     private final S3Service s3Service;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
@@ -72,7 +73,7 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
         } else if ("/import".equals(path)) {
             List<AlbumImport> albums = s3Service.listBuckets();
             albums.forEach(importAlbum -> {
-                dynamoRepository.importAlbums(importAlbum,USERNAME);
+                dynamoRepository.importAlbums(importAlbum, GALLERY);
             });
         }
 
@@ -85,10 +86,10 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
     }
 
     private APIGatewayV2HTTPResponse handleGetAllAlbums() {
-        log.info("Fetching all albums for user: {}", USERNAME);
-        List<Album> allAlbums = dynamoRepository.getAlbums(USERNAME);
-        log.info("Retrieved {} albums for user: {}", allAlbums.size(), USERNAME);
-        return create200Response(allAlbums);
+        log.info("Fetching all albums for user: {}", GALLERY);
+        List<Album> allAlbums = dynamoRepository.getAlbums(GALLERY);
+        log.info("Retrieved {} albums for user: {}", allAlbums.size(), GALLERY);
+        return create200Response(GalleryResponse.fromAlbums(GALLERY, allAlbums));
     }
 
     private Optional<String> getAlbumId(APIGatewayV2HTTPEvent request){
@@ -100,11 +101,11 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
     }
     private APIGatewayV2HTTPResponse handleGetSingleAlbum(APIGatewayV2HTTPEvent request) {
         Optional<String> albumId = getAlbumId(request);
-        log.info("Fetching album: {} for user: {}", albumId, USERNAME);
+        log.info("Fetching album: {} for user: {}", albumId, GALLERY);
 
         return albumId
             // retrieve album with given id
-            .map(id -> dynamoRepository.getAlbum(USERNAME, id))
+            .map(id -> dynamoRepository.getAlbum(GALLERY, id))
             // extract album and process fotos.
             .map( album -> {
                 List<Photo> photos = dynamoRepository.getPhotos("ALBUM#" + album.getAlbumId());
@@ -118,7 +119,7 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
                         .build();
                 return create200Response(responseBody);
             }).orElseGet(() -> {
-                log.warn("Album not found: {} for user: {}", albumId.orElse("unknown"), USERNAME);
+                log.warn("Album not found: {} for user: {}", albumId.orElse("unknown"), GALLERY);
                 return create404Response("Album " + albumId.orElse("unknown") + "not found");
             });
     }
@@ -127,14 +128,14 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
         String albumId = Optional.ofNullable(albumRequest.getAlbumId())
                 .orElseGet(() -> java.util.UUID.randomUUID().toString());
 
-        log.info("Creating album: name='{}', albumId='{}' for user: {}", albumRequest.getName(), albumId, USERNAME);
+        log.info("Creating album: name='{}', albumId='{}' for user: {}", albumRequest.getName(), albumId, GALLERY);
 
         Album album = Album.builder()
-                .photobook(USERNAME)
+                .photobook(GALLERY)
                 .albumId(albumId)
                 .name(albumRequest.getName())
                 .date(LocalDateTime.now(clock))
-                .pk("PHOTOBOOK#" + USERNAME)
+                .pk("PHOTOBOOK#" + GALLERY)
                 .sk("ALBUM#" + albumId)
                 .build();
         dynamoRepository.createAlbum(album);

@@ -130,11 +130,11 @@ abstract class AWSEnabledIntegrationTest {
 
     String albumId = "71094182-8da0-4a8a-8f01-d8c98696ab50";
     Album testAlbum = new Album(
-        AlbumHandler.USERNAME,
+        AlbumHandler.GALLERY,
         albumId,
         "test album",
         LocalDateTime.now(albumCreationDateTimeClock),
-        "PHOTOBOOK#" + AlbumHandler.USERNAME,
+        "PHOTOBOOK#" + AlbumHandler.GALLERY,
         ("ALBUM#"+ albumId)
 
     );
