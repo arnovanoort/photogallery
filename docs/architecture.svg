@@ -1,0 +1,192 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 520" width="100%" height="100%" style="background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Arrowhead markers -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569" />
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669" />
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706" />
+    </marker>
+
+    <!-- Drop Shadows -->
+    <filter id="card-shadow" x="-5%" y="-5%" width="110%" height="115%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+  </defs>
+
+  <!-- Canvas Border -->
+  <rect x="10" y="10" width="980" height="500" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
+
+  <!-- Title & Subtitle -->
+  <text x="40" y="48" font-size="20" font-weight="700" fill="#0f172a">Photobook Architecture</text>
+  <text x="40" y="70" font-size="13" fill="#64748b">Serverless pipeline: User → API Gateway → AWS Lambda → Amazon DynamoDB &amp; S3</text>
+
+  <!-- ==================== 1. USER / FRONTEND LAYER ==================== -->
+  <g transform="translate(40, 110)">
+    <rect width="180" height="250" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <!-- Header Badge -->
+    <rect x="0" y="0" width="180" height="42" rx="12" fill="#e0f2fe" />
+    <rect x="0" y="30" width="180" height="12" fill="#e0f2fe" />
+    <!-- User Icon -->
+    <circle cx="28" cy="21" r="9" fill="#0284c7" />
+    <path d="M22 28 C22 24, 34 24, 34 28" fill="#0284c7" />
+    <text x="46" y="26" font-size="14" font-weight="700" fill="#0369a1">User / Client</text>
+
+    <!-- Body content -->
+    <text x="16" y="66" font-size="12" font-weight="600" fill="#334155">Frontend App</text>
+    <text x="16" y="84" font-size="11" fill="#64748b">• Single Page Web App</text>
+    <text x="16" y="102" font-size="11" fill="#64748b">• HTML5 / JS Fetch API</text>
+    
+    <line x1="16" y1="118" x2="164" y2="118" stroke="#f1f5f9" stroke-width="1" />
+    
+    <text x="16" y="140" font-size="12" font-weight="600" fill="#334155">Interactions</text>
+    <text x="16" y="158" font-size="11" fill="#64748b">• Fetch albums</text>
+    <text x="16" y="174" font-size="11" fill="#64748b">• View album photos</text>
+    <text x="16" y="190" font-size="11" fill="#64748b">• Create new album</text>
+
+    <rect x="16" y="208" width="148" height="28" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1" />
+    <text x="24" y="226" font-size="10.5" font-weight="600" fill="#15803d">Direct S3 Image Render</text>
+  </g>
+
+  <!-- Flow 1: User -> API Gateway -->
+  <path d="M 220 220 L 268 220" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="224" y="196" width="40" height="18" rx="4" fill="#f1f5f9" />
+  <text x="244" y="209" font-size="10" font-weight="600" fill="#475569" text-anchor="middle">HTTPS</text>
+
+  <!-- ==================== 2. API GATEWAY LAYER ==================== -->
+  <g transform="translate(275, 110)">
+    <rect width="190" height="250" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <!-- Header Badge -->
+    <rect x="0" y="0" width="190" height="42" rx="12" fill="#ffe4e6" />
+    <rect x="0" y="30" width="190" height="12" fill="#ffe4e6" />
+    <!-- API GW Icon -->
+    <rect x="18" y="12" width="18" height="18" rx="4" fill="#e11d48" />
+    <text x="23" y="25" font-size="11" font-weight="800" fill="#ffffff">API</text>
+    <text x="46" y="26" font-size="13.5" font-weight="700" fill="#be123c">API Gateway</text>
+
+    <!-- Body content -->
+    <text x="16" y="66" font-size="12" font-weight="600" fill="#334155">HTTP API (v2)</text>
+    <text x="16" y="84" font-size="11" fill="#64748b">• CORS Enabled (*)</text>
+    <text x="16" y="102" font-size="11" fill="#64748b">• Payload Format 2.0</text>
+
+    <line x1="16" y1="118" x2="174" y2="118" stroke="#f1f5f9" stroke-width="1" />
+
+    <text x="16" y="138" font-size="12" font-weight="600" fill="#334155">Endpoints &amp; Routes</text>
+    <rect x="16" y="148" width="158" height="20" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" />
+    <text x="22" y="162" font-size="10" font-family="monospace" fill="#0f172a">GET /albums</text>
+
+    <rect x="16" y="172" width="158" height="20" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" />
+    <text x="22" y="186" font-size="10" font-family="monospace" fill="#0f172a">GET /album?albumId=</text>
+
+    <rect x="16" y="196" width="158" height="20" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" />
+    <text x="22" y="210" font-size="10" font-family="monospace" fill="#0f172a">POST /albums</text>
+
+    <rect x="16" y="220" width="158" height="20" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" />
+    <text x="22" y="234" font-size="10" font-family="monospace" fill="#0f172a">ANY /import</text>
+  </g>
+
+  <!-- Flow 2: API Gateway -> Lambda -->
+  <path d="M 465 220 L 513 220" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="469" y="196" width="40" height="18" rx="4" fill="#f1f5f9" />
+  <text x="489" y="209" font-size="10" font-weight="600" fill="#475569" text-anchor="middle">Proxy</text>
+
+  <!-- ==================== 3. AWS LAMBDA LAYER ==================== -->
+  <g transform="translate(520, 110)">
+    <rect width="210" height="250" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <!-- Header Badge -->
+    <rect x="0" y="0" width="210" height="42" rx="12" fill="#fef3c7" />
+    <rect x="0" y="30" width="210" height="12" fill="#fef3c7" />
+    <!-- Lambda Icon (λ) -->
+    <rect x="18" y="12" width="18" height="18" rx="4" fill="#d97706" />
+    <text x="23" y="26" font-size="13" font-weight="800" fill="#ffffff">λ</text>
+    <text x="46" y="26" font-size="13.5" font-weight="700" fill="#b45309">AWS Lambda</text>
+
+    <!-- Body content -->
+    <text x="16" y="66" font-size="12" font-weight="600" fill="#334155">AlbumHandler.java</text>
+    <text x="16" y="84" font-size="11" fill="#64748b">• Runtime: Java 21</text>
+    <text x="16" y="100" font-size="11" fill="#64748b">• APIGatewayV2HTTPEvent</text>
+    <text x="16" y="116" font-size="11" fill="#64748b">• Memory: 512 MB</text>
+
+    <line x1="16" y1="128" x2="194" y2="128" stroke="#f1f5f9" stroke-width="1" />
+
+    <text x="16" y="148" font-size="12" font-weight="600" fill="#334155">Business Logic</text>
+    <text x="16" y="166" font-size="11" fill="#64748b">• Route &amp; Method Dispatcher</text>
+    <text x="16" y="182" font-size="11" fill="#64748b">• DynamoRepository interaction</text>
+    <text x="16" y="198" font-size="11" fill="#64748b">• S3Service Presign generator</text>
+    <text x="16" y="214" font-size="11" fill="#64748b">• Jackson JSON serialization</text>
+    
+    <rect x="16" y="224" width="178" height="18" rx="4" fill="#fffbeb" stroke="#fde68a" stroke-width="1" />
+    <text x="22" y="237" font-size="9.5" font-weight="600" fill="#b45309">Auto CORS header injection</text>
+  </g>
+
+  <!-- Flow 3: Lambda -> DynamoDB -->
+  <path d="M 730 180 L 778 180" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)" />
+  <rect x="734" y="158" width="42" height="18" rx="4" fill="#eff6ff" />
+  <text x="755" y="171" font-size="9.5" font-weight="600" fill="#1d4ed8" text-anchor="middle">Query/Put</text>
+
+  <!-- Flow 4: Lambda -> S3 -->
+  <path d="M 730 280 L 778 280" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#arrow-green)" />
+  <rect x="732" y="258" width="45" height="18" rx="4" fill="#ecfdf5" />
+  <text x="754" y="271" font-size="9.5" font-weight="600" fill="#047857" text-anchor="middle">Presign</text>
+
+  <!-- ==================== 4. PERSISTENCE LAYER ==================== -->
+  
+  <!-- DynamoDB Card -->
+  <g transform="translate(785, 110)">
+    <rect width="180" height="120" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <!-- Header Badge -->
+    <rect x="0" y="0" width="180" height="38" rx="12" fill="#dbeafe" />
+    <rect x="0" y="26" width="180" height="12" fill="#dbeafe" />
+    <!-- DynamoDB Icon -->
+    <rect x="14" y="10" width="16" height="16" rx="3" fill="#2563eb" />
+    <text x="18" y="22" font-size="10" font-weight="800" fill="#ffffff">DB</text>
+    <text x="38" y="24" font-size="13" font-weight="700" fill="#1e40af">DynamoDB</text>
+
+    <!-- Body content -->
+    <text x="14" y="56" font-size="11.5" font-weight="600" fill="#334155">Table: PhotobookData</text>
+    <text x="14" y="74" font-size="10.5" fill="#64748b">• Single Table Design</text>
+    <text x="14" y="90" font-size="10.5" fill="#64748b">• PK: ALBUM#... / PHOTO#...</text>
+    <text x="14" y="106" font-size="10.5" fill="#64748b">• Metadata persistence</text>
+  </g>
+
+  <!-- S3 Card -->
+  <g transform="translate(785, 245)">
+    <rect width="180" height="115" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#card-shadow)" />
+    <!-- Header Badge -->
+    <rect x="0" y="0" width="180" height="38" rx="12" fill="#d1fae5" />
+    <rect x="0" y="26" width="180" height="12" fill="#d1fae5" />
+    <!-- S3 Icon -->
+    <rect x="14" y="10" width="16" height="16" rx="3" fill="#059669" />
+    <text x="18" y="22" font-size="10" font-weight="800" fill="#ffffff">S3</text>
+    <text x="38" y="24" font-size="13" font-weight="700" fill="#065f46">Amazon S3</text>
+
+    <!-- Body content -->
+    <text x="14" y="56" font-size="11.5" font-weight="600" fill="#334155">Bucket: yolo-photobook</text>
+    <text x="14" y="74" font-size="10.5" fill="#64748b">• Private photo storage</text>
+    <text x="14" y="90" font-size="10.5" fill="#64748b">• Public access blocked</text>
+    <text x="14" y="106" font-size="10.5" fill="#64748b">• Secure temporary URLs</text>
+  </g>
+
+  <!-- Flow 5: Direct Image Download to Browser via Pre-signed URL -->
+  <path d="M 875 365 C 875 440, 130 440, 130 365" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrow-green)" />
+  <rect x="360" y="420" width="280" height="24" rx="6" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1" />
+  <text x="500" y="436" font-size="11" font-weight="600" fill="#065f46" text-anchor="middle">Direct photo download via Pre-signed URL (HTTPS)</text>
+
+  <!-- Legend / Info footer -->
+  <g transform="translate(40, 475)">
+    <circle cx="8" cy="8" r="4" fill="#475569" />
+    <text x="20" y="12" font-size="11" fill="#64748b">Synchronous API Call</text>
+
+    <circle cx="180" cy="8" r="4" fill="#2563eb" />
+    <text x="192" y="12" font-size="11" fill="#64748b">Database Query / Mutation</text>
+
+    <circle cx="365" cy="8" r="4" fill="#059669" />
+    <text x="377" y="12" font-size="11" fill="#64748b">Direct S3 Asset Transfer</text>
+  </g>
+</svg>
