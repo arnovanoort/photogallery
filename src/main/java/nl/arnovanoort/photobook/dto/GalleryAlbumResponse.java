@@ -13,7 +13,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-class GalleryAlbumResponse {
+public class GalleryAlbumResponse {
     private String name;
     private String id;
     private LocalDateTime date;
@@ -22,7 +22,7 @@ class GalleryAlbumResponse {
         return albums.stream().map(album -> {
             return GalleryAlbumResponse.builder()
                 .name(album.getName())
-                .id(album.getName())
+                .id(album.getAlbumId())
                 .date(album.getDate())
                 .build();
         }).toList();

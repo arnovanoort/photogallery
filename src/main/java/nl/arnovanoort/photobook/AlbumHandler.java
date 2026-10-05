@@ -24,7 +24,7 @@ import java.util.Optional;
 @Slf4j
 public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
-    public final static String GALLERY = "Arno"; // replace in next phase with name fetched from cognito
+//    public final static String GALLERY = "Arno"; // replace in next phase with name fetched from cognito
 
     private final S3Service s3Service;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
@@ -48,13 +48,13 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
     /* needs refactoring to deal with individual api calls from the lambdas */
     @Override
     public APIGatewayV2HTTPResponse handleRequest(APIGatewayV2HTTPEvent request, Context context) {
-        String path = request.getRawPath();
+        String routeKey = request.getRouteKey();
         String httpMethod = (request.getRequestContext() != null && request.getRequestContext().getHttp() != null)
                 ? request.getRequestContext().getHttp().getMethod()
                 : null;
-        log.info("Received request: {} {}", httpMethod, path);
+        log.info("Received request: {} {}", httpMethod, routeKey);
 
-        if ("/albums".equals(path)) {
+        if (routeKey != null && routeKey.endsWith("/albums")) {
             if ("GET".equals(httpMethod)) {
                 return handleGetAllAlbums();
             } else if ("POST".equals(httpMethod)) {
@@ -66,22 +66,22 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
                     return createResponse("Invalid JSON body", 400);
                 }
             }
-        } else if ("/album".equals(path)) {
+        } else if (routeKey != null && routeKey.endsWith("/album")) {
             if ("GET".equals(httpMethod)) {
                 return handleGetSingleAlbum(request);
             }
-        } else if ("/import".equals(path)) {
+        } else if (routeKey != null && routeKey.endsWith("/import")) {
             List<AlbumImport> albums = s3Service.listBuckets();
             albums.forEach(importAlbum -> {
                 dynamoRepository.importAlbums(importAlbum, GALLERY);
             });
         }
 
-        log.warn("Method or path not supported: {} {}", httpMethod, path);
+        log.warn("Method or path not supported: {} {}", httpMethod, routeKey);
         // For other methods or unknown paths
         return APIGatewayV2HTTPResponse.builder()
                 .withStatusCode(405)
-                .withBody("Methode " + httpMethod + " niet toegestaan voor pad " + path)
+                .withBody("Methode " + httpMethod + " niet toegestaan voor pad " + routeKey)
                 .build();
     }
 

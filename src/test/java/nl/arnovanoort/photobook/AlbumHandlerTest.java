@@ -43,14 +43,15 @@ class AlbumHandlerTest {
         when(mockDynamoRepository.getAlbum(AlbumHandler.GALLERY, "ALBUM#99")).thenReturn(null);
 
         APIGatewayV2HTTPEvent request = new APIGatewayV2HTTPEvent();
-        request.setRawPath("/album");
+        request.setRawPath("/galleries/test/album");
 
         APIGatewayV2HTTPEvent.RequestContext requestContext = new APIGatewayV2HTTPEvent.RequestContext();
         APIGatewayV2HTTPEvent.RequestContext.Http http = new APIGatewayV2HTTPEvent.RequestContext.Http();
         http.setMethod("GET");
-        http.setPath("/album");
+        http.setPath("/galleries/test/album");
         requestContext.setHttp(http);
         request.setRequestContext(requestContext);
+        request.setRouteKey("GET /galleries/{galleryId}/album");
 
         request.setQueryStringParameters(Map.of("albumId", "ALBUM#99"));
 

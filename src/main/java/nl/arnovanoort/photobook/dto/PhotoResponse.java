@@ -20,13 +20,13 @@ public class PhotoResponse {
 
     public static List<PhotoResponse> fromPhotos(List<Photo> photos){
         return photos.stream().map(photo -> {
-            PhotoResponse.builder()
+            return PhotoResponse.builder()
                     .albumId(photo.getAlbumId())
                     .photoId(photo.getPhotoId())
                     .date(photo.getDate())
                     .preSignedUrl(photo.getPreSignedUrl())
                     .build();
-        });
+        }).toList();
 
     }
 }

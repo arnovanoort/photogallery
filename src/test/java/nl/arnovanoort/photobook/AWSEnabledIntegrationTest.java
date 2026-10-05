@@ -1,5 +1,7 @@
 package nl.arnovanoort.photobook;
 
+import nl.arnovanoort.photobook.dto.GalleryAlbumResponse;
+import nl.arnovanoort.photobook.dto.GalleryResponse;
 import nl.arnovanoort.photobook.model.Album;
 import nl.arnovanoort.photobook.dto.AlbumResponse;
 import nl.arnovanoort.photobook.repository.DynamoRepository;
@@ -40,6 +42,11 @@ abstract class AWSEnabledIntegrationTest {
     protected static AlbumHandler albumHandler;
     protected static final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     protected static Clock albumCreationDateTimeClock;
+
+    protected static String testGalleryName = "Arno";
+    protected static String testAlbumName = "testAlbumName";
+    protected static String albumId = "71094182-8da0-4a8a-8f01-d8c98696ab50";
+
     @BeforeAll
     static void setUp() {
         // prepare mocked dynamoDB client
@@ -128,11 +135,10 @@ abstract class AWSEnabledIntegrationTest {
         }
     }
 
-    String albumId = "71094182-8da0-4a8a-8f01-d8c98696ab50";
     Album testAlbum = new Album(
         AlbumHandler.GALLERY,
         albumId,
-        "test album",
+        testAlbumName,
         LocalDateTime.now(albumCreationDateTimeClock),
         "PHOTOBOOK#" + AlbumHandler.GALLERY,
         ("ALBUM#"+ albumId)
@@ -142,6 +148,17 @@ abstract class AWSEnabledIntegrationTest {
     AlbumResponse testAlbumResponse = new AlbumResponse(
         testAlbum,
         List.of()
+    );
+
+    GalleryAlbumResponse galleryAlbumResponse = new GalleryAlbumResponse(
+        testAlbumName,
+        albumId,
+        LocalDateTime.now(albumCreationDateTimeClock)
+    );
+
+    GalleryResponse testGalleryResponse = new GalleryResponse(
+            testGalleryName ,
+            List.of(galleryAlbumResponse)
     );
 
 }

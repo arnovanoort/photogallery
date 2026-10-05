@@ -128,13 +128,13 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
 
 resource "aws_apigatewayv2_route" "album_route" {
   api_id    = aws_apigatewayv2_api.photo_api.id
-  route_key = "ANY /album"
+  route_key = "ANY /galleries/{galleryId}/album"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
 resource "aws_apigatewayv2_route" "albums_route" {
   api_id    = aws_apigatewayv2_api.photo_api.id
-  route_key = "ANY /albums"
+  route_key = "ANY /galleries/{galleryId}/albums"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 

@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.extern.slf4j.Slf4j;
+import nl.arnovanoort.photobook.dto.GalleryResponse;
 import nl.arnovanoort.photobook.model.Album;
 import nl.arnovanoort.photobook.dto.AlbumRequest;
 import nl.arnovanoort.photobook.dto.AlbumResponse;
@@ -37,7 +38,7 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
 
         // fetch created album
         var getAlbumResponse = albumHandler.handleRequest(
-                createRequest("/album", "GET", null, Map.of("albumId", createdAlbum.getAlbumId())),
+                createRequest("/gallery/test/album", "GET", null, Map.of("albumId", createdAlbum.getAlbumId())),
                 null
         );
 
@@ -53,7 +54,7 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
                 .build();
 
         var createResult = albumHandler.handleRequest(
-                createRequest("/albums", "POST", albumRequest),
+                createRequest("/gallery/test/albums", "POST", albumRequest),
                 null
         );
 
@@ -64,24 +65,24 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
     void testGetAllAlbums() {
         var createResponse = createTestAlbum();
         var response = albumHandler.handleRequest(
-                createRequest("/albums", "GET", null),
+                createRequest("/gallery/test/albums", "GET", null),
                 null
 
         );
 
         assertEquals(200, response.getStatusCode());
-        assertEquals(List.of(testAlbum), parseResponse(response.getBody(), new TypeReference<List<Album>>() {}));
+        assertEquals(testGalleryResponse, parseResponse(response.getBody(), new TypeReference<GalleryResponse>() {}));
     }
 
     @Test
     void testGetNonExistentAlbum() {
         var response = albumHandler.handleRequest(
-                createRequest("/album", "GET", null, Map.of("albumId", "999999")),
+                createRequest("/gallery/test/album", "GET", null, Map.of("albumId", albumId)),
                 null
         );
 
         assertEquals(404, response.getStatusCode());
-        assertEquals("Album 999999not found", response.getBody());
+        assertEquals("Album " + albumId + "not found", response.getBody());
     }
 
     private APIGatewayV2HTTPEvent createRequest(
@@ -93,6 +94,14 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
             String path, String method, Object body, java.util.Map<String, String> queryParams) {
         var request = new APIGatewayV2HTTPEvent();
         request.setRawPath(path);
+
+        // bootst API Gateway route key & path parameters na
+        if (path.endsWith("/albums")) {
+            request.setRouteKey(method + " /galleries/{galleryId}/albums");
+        } else if (path.endsWith("/album")) {
+            request.setRouteKey(method + " /galleries/{galleryId}/album");
+        }
+        request.setPathParameters(Map.of("galleryId", "test")); // of haal uit path
 
         APIGatewayV2HTTPEvent.RequestContext requestContext = new APIGatewayV2HTTPEvent.RequestContext();
         APIGatewayV2HTTPEvent.RequestContext.Http http = new APIGatewayV2HTTPEvent.RequestContext.Http();
