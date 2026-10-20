@@ -2,41 +2,42 @@ package nl.arnovanoort.photobook.repository;
 
 import lombok.extern.slf4j.Slf4j;
 import nl.arnovanoort.photobook.dto.AlbumImport;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CommonPrefix;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 @Slf4j
 public class S3Service {
 
     private final String bucketName;
     private final S3Presigner s3Presigner;
+    private final S3Client s3Client;
 
-    public S3Service(String bucketName, S3Presigner s3Presigner) {
+    public S3Service(String bucketName, S3Client s3Client) {
         this.bucketName = bucketName;
-        this.s3Presigner = s3Presigner;
+        this.s3Presigner = S3Presigner.create();
+        this.s3Client = s3Client;
     }
 
     public S3Service() {
+        String awsRegion = System.getenv("AWS_REGION") != null ? System.getenv("AWS_REGION")  : "eu-west-1";
         this.bucketName = System.getenv("BUCKET_NAME") != null ? System.getenv("BUCKET_NAME") : "photo-bucket";
         this.s3Presigner = S3Presigner.create();
+        this.s3Client = createS3Client(awsRegion);
     }
 
-    protected S3Service(String bucketName) {
-        this.bucketName = bucketName;
-        this.s3Presigner = S3Presigner.create();
+    private S3Client createS3Client(String awsRegion) {
+        return S3Client.builder().region(Region.of(awsRegion)).build();
     }
 
     public String generatePresignedUrl(String s3FileName) {
@@ -61,32 +62,38 @@ public class S3Service {
         }
     }
 
-    public List<AlbumImport> listBuckets() {
+    public List<AlbumImport> listAlbums(String galleryName) {
         log.info("fetching folders in bucket: " + bucketName);
         List<AlbumImport> albums = new ArrayList<AlbumImport>();
-        S3Client s3 = S3Client.builder()
-                .region(Region.EU_WEST_1)
-                .build();
+
+        String galleryPrefix = galleryName.endsWith("/") ? galleryName : galleryName + "/";
 
         // Delimiter "/" zorgt ervoor dat S3 stopt bij de eerste submap
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(bucketName)
                 .delimiter("/")
-                // optioneel: .prefix("albums/") als je in een specifieke submap wilt zoeken
+                .prefix(galleryPrefix)
                 .build();
 
-        ListObjectsV2Response response = s3.listObjectsV2(request);
+        ListObjectsV2Response response = s3Client.listObjectsV2(request);
 
         System.out.println("Gevonden mappen in bucket '" + bucketName + "':");
 
         for (CommonPrefix commonPrefix : response.commonPrefixes()) {
+            String fullAlbumPrefix = commonPrefix.prefix(); // bijv: "citytrips_gallery/london/"
+
+            // 2. Haal de pure albumnaam eruit ("london")
+            String cleanAlbumName = fullAlbumPrefix
+                    .substring(galleryPrefix.length())
+                    .replace("/", "");
+
             albums.add(
                 new AlbumImport(
-                    commonPrefix.prefix(),
-                    listPhotosInAlbum(commonPrefix.prefix())
+                        cleanAlbumName,                     // "london"
+                        listPhotosInAlbum(fullAlbumPrefix)  // zoekt met "citytrips_gallery/london/"
                 )
             );
-            log.info("adding " + albums.getLast());
+            log.info("adding " + commonPrefix + " to " + albums.getLast());
         }
         return albums;
     }
@@ -94,26 +101,39 @@ public class S3Service {
     public List<String> listPhotosInAlbum(String albumPrefix) {
         log.info("fetching photos in album: " + albumPrefix);
         List<String> photos = new ArrayList<>();
-        S3Client s3 = S3Client.builder()
-                .region(Region.EU_WEST_1)
-                .build();
 
+        log.info("Reading bucket: " + bucketName);
         // Geen delimiter, wel prefix om alle objecten in de folder te krijgen
+//        String prefix = galleryName + "/" + albumPrefix;
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(bucketName)
                 .prefix(albumPrefix)
                 .build();
 
-        ListObjectsV2Response response = s3.listObjectsV2(request);
+        ListObjectsV2Response response = s3Client.listObjectsV2(request);
 
         for (var s3Object : response.contents()) {
             // Sla de folder zelf over (bijv. "album1/" zonder bestandsnaam)
             if (!s3Object.key().equals(albumPrefix)) {
-                photos.add(s3Object.key());
-                log.info(" - " + s3Object.key());
+                String filename = s3Object.key().split("/")[2];
+                photos.add(filename);
+                log.info("adding file " + filename + " to album " + albumPrefix);
             }
         }
         return photos;
     }
 
+    public void uploadPhoto(String testGalleryCitytrips, String album,  String filename, byte[] bytes) {
+        String key = testGalleryCitytrips + "/" + album + "/" + filename;
+        log.info("uploading file " + key);
+
+        s3Client.putObject(
+                PutObjectRequest.builder()
+                        .bucket(bucketName)
+                        .key(key)
+                        .contentType("image/jpeg")
+                        .build(),
+                RequestBody.fromBytes(bytes)
+        )   ;
+    }
 }

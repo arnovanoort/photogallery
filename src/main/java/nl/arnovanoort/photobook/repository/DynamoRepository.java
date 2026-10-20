@@ -11,9 +11,7 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -44,19 +42,19 @@ public class DynamoRepository {
         this.enhancedClient = enhancedClient;
     }
 
-    public List<Album> getAlbums(String photobook) {
-        log.info("Querying DynamoDB table '{}' for photobook: {}", TABLE_NAME, photobook);
+    public List<Album> getAlbums(String gallery) {
+        log.info("Querying DynamoDB table '{}' for photobook: {}", TABLE_NAME, gallery);
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
 
         return albumTable.query(QueryConditional.keyEqualTo(
-                Key.builder().partitionValue("PHOTOBOOK#" + photobook).build()
+                Key.builder().partitionValue("PHOTOBOOK#" + gallery).build()
         )).items().stream().collect(Collectors.toList());
     }
 
-    public Album getAlbum(String photobook, String albumId) {
-        log.info("Querying DynamoDB table '{}' for albumId: {} under photobook: {}", TABLE_NAME, albumId, photobook);
+    public Album getAlbum(String gallery, String albumId) {
+        log.info("Querying DynamoDB table '{}' for albumId: {} under gallery: {}", TABLE_NAME, albumId, gallery);
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
-        return albumTable.getItem(Key.builder().partitionValue("PHOTOBOOK#" + photobook).sortValue("ALBUM#" + albumId).build());
+        return albumTable.getItem(Key.builder().partitionValue("PHOTOBOOK#" + gallery).sortValue("ALBUM#" + albumId).build());
     }
 
     public List<Photo> getPhotos(String albumName) {
@@ -79,11 +77,11 @@ public class DynamoRepository {
         albumTable.putItem(photo);
     }
 
-    public void importAlbums(AlbumImport albumImport, String photobook) {
-        Album album = albumImport.getAlbum(photobook);
+    public void importAlbums(AlbumImport albumImport, String gallery) {
+        Album album = albumImport.toAlbum(gallery);
         createAlbum(album);
 
-        List<Photo> photos = albumImport.getPhotos(album.getAlbumId());
+        List<Photo> photos = albumImport.toPhotos(album.getAlbumId());
         photos.forEach(photo -> {
             log.info("writing photo {} to dynamo", photo);
             createPhoto(photo);

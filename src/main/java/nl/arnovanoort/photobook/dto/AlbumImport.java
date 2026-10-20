@@ -8,29 +8,29 @@ import java.util.List;
 import java.util.UUID;
 
 public record AlbumImport(String albumName, List<String> photoName){
-    public Album getAlbum(String photobook){
+    public Album toAlbum(String gallery){
         String albumId = UUID.randomUUID().toString();
         return Album.builder()
-                .photobook(photobook)
+                .photobook(gallery)
                 .albumId(albumId)
                 .name(albumName)
                 .date(LocalDateTime.now())
-                .pk("PHOTOBOOK#" + photobook)
+                .pk("PHOTOBOOK#" + gallery)
                 .sk("ALBUM#" + albumId)
                 .build();
     }
 
-    public List<Photo> getPhotos(String albumId) {
+    public List<Photo> toPhotos(String albumId) {
         return photoName.stream().map(name -> {
             String photoId = UUID.randomUUID().toString();
             return Photo.builder()
-                .albumId(albumId)
-                .photoId(photoId)
-                .s3FileName(name)
-                .date(LocalDateTime.now().toString())
-                .pk("ALBUM#" + albumId)
-                .sk("PHOTO#" + photoId)
-                .build();
+                    .albumId(albumId)
+                    .photoId(photoId)
+                    .s3FileName(name)
+                    .date(LocalDateTime.now().toString())
+                    .pk("ALBUM#" + albumId)
+                    .sk("PHOTO#" + photoId)
+                    .build();
         }).toList();
     }
 }

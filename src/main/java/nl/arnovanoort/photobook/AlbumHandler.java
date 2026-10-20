@@ -24,8 +24,7 @@ import java.util.Optional;
 @Slf4j
 public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
-//    public final static String GALLERY = "Arno"; // replace in next phase with name fetched from cognito
-
+    protected final static String DEFAULT_GALLERY = "demo";
     private final S3Service s3Service;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     protected DynamoRepository dynamoRepository;
@@ -48,6 +47,7 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
     /* needs refactoring to deal with individual api calls from the lambdas */
     @Override
     public APIGatewayV2HTTPResponse handleRequest(APIGatewayV2HTTPEvent request, Context context) {
+        String gallery = getGalleryId(request).orElse("demo");
         String routeKey = request.getRouteKey();
         String httpMethod = (request.getRequestContext() != null && request.getRequestContext().getHttp() != null)
                 ? request.getRequestContext().getHttp().getMethod()
@@ -56,11 +56,11 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
 
         if (routeKey != null && routeKey.endsWith("/albums")) {
             if ("GET".equals(httpMethod)) {
-                return handleGetAllAlbums();
+                return handleGetAllAlbums(gallery);
             } else if ("POST".equals(httpMethod)) {
                 try {
                     AlbumRequest albumRequest = objectMapper.readValue(request.getBody(), AlbumRequest.class);
-                    return handleCreateAlbum(albumRequest);
+                    return handleCreateAlbum(gallery, albumRequest);
                 } catch (Exception e) {
                     log.error("Failed to parse request body: {}", request.getBody(), e);
                     return createResponse("Invalid JSON body", 400);
@@ -68,12 +68,13 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
             }
         } else if (routeKey != null && routeKey.endsWith("/album")) {
             if ("GET".equals(httpMethod)) {
-                return handleGetSingleAlbum(request);
+                return handleGetSingleAlbum(gallery, request);
             }
         } else if (routeKey != null && routeKey.endsWith("/import")) {
-            List<AlbumImport> albums = s3Service.listBuckets();
+            List<AlbumImport> albums = s3Service.listAlbums(gallery);
             albums.forEach(importAlbum -> {
-                dynamoRepository.importAlbums(importAlbum, GALLERY);
+                log.info("Importing album: {} for gallery {}", importAlbum, gallery);
+                dynamoRepository.importAlbums(importAlbum, gallery);
             });
         }
 
@@ -85,11 +86,11 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
                 .build();
     }
 
-    private APIGatewayV2HTTPResponse handleGetAllAlbums() {
-        log.info("Fetching all albums for user: {}", GALLERY);
-        List<Album> allAlbums = dynamoRepository.getAlbums(GALLERY);
-        log.info("Retrieved {} albums for user: {}", allAlbums.size(), GALLERY);
-        return create200Response(GalleryResponse.fromAlbums(GALLERY, allAlbums));
+    private APIGatewayV2HTTPResponse handleGetAllAlbums(String gallery) {
+        log.info("Fetching all albums for user: {}", gallery);
+        List<Album> allAlbums = dynamoRepository.getAlbums(gallery);
+        log.info("Retrieved {} albums for user: {}", allAlbums.size(), gallery);
+        return create200Response(GalleryResponse.fromAlbums(gallery, allAlbums));
     }
 
     private Optional<String> getAlbumId(APIGatewayV2HTTPEvent request){
@@ -99,13 +100,20 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
             return Optional.empty();
         }
     }
-    private APIGatewayV2HTTPResponse handleGetSingleAlbum(APIGatewayV2HTTPEvent request) {
+
+    private Optional<String> getGalleryId(APIGatewayV2HTTPEvent request) {
+        if (request.getPathParameters() != null) {
+            return Optional.ofNullable(request.getPathParameters().get("galleryId"));
+        }
+        return Optional.empty();
+    }
+    private APIGatewayV2HTTPResponse handleGetSingleAlbum(String gallery, APIGatewayV2HTTPEvent request) {
         Optional<String> albumId = getAlbumId(request);
-        log.info("Fetching album: {} for user: {}", albumId, GALLERY);
+        log.info("Fetching album: {} for user: {}", albumId, gallery);
 
         return albumId
             // retrieve album with given id
-            .map(id -> dynamoRepository.getAlbum(GALLERY, id))
+            .map(id -> dynamoRepository.getAlbum(gallery, id))
             // extract album and process fotos.
             .map( album -> {
                 List<Photo> photos = dynamoRepository.getPhotos("ALBUM#" + album.getAlbumId());
@@ -119,23 +127,23 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
                         .build();
                 return create200Response(responseBody);
             }).orElseGet(() -> {
-                log.warn("Album not found: {} for user: {}", albumId.orElse("unknown"), GALLERY);
+                log.warn("Album not found: {} for user: {}", albumId.orElse("unknown"), gallery);
                 return create404Response("Album " + albumId.orElse("unknown") + "not found");
             });
     }
 
-    private APIGatewayV2HTTPResponse handleCreateAlbum(AlbumRequest albumRequest) {
+    private APIGatewayV2HTTPResponse handleCreateAlbum(String gallery, AlbumRequest albumRequest) {
         String albumId = Optional.ofNullable(albumRequest.getAlbumId())
                 .orElseGet(() -> java.util.UUID.randomUUID().toString());
 
-        log.info("Creating album: name='{}', albumId='{}' for user: {}", albumRequest.getName(), albumId, GALLERY);
+        log.info("Creating album: name='{}', albumId='{}' for user: {}", albumRequest.getName(), albumId, gallery);
 
         Album album = Album.builder()
-                .photobook(GALLERY)
+                .photobook(gallery)
                 .albumId(albumId)
                 .name(albumRequest.getName())
                 .date(LocalDateTime.now(clock))
-                .pk("PHOTOBOOK#" + GALLERY)
+                .pk("PHOTOBOOK#" + gallery)
                 .sk("ALBUM#" + albumId)
                 .build();
         dynamoRepository.createAlbum(album);
