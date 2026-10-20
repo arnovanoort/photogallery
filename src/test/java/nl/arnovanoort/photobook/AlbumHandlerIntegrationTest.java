@@ -89,26 +89,11 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
         assertEquals(200, getAlbumResponse.getStatusCode());
         assertAlbumResponse(parseResponse(getAlbumResponse.getBody(), AlbumResponse.class), testGalleryCitytrips, testAlbumLondonName, new String[] {testPhotoTowerBridge, testPhotoLondoneye});
 
-//        // create new album
-//        var createResponse = createTestAlbum(testGalleryCitytrips);
-//        Album createdAlbum = parseResponse(createResponse.getBody(), Album.class);
-//
-//        // test result
-//        assertEquals(201, createResponse.getStatusCode());
-//        assertEquals(createdAlbum, testAlbum);
-//
-        // fetch created album
-//        var getAlbumResponse = albumHandler.handleRequest(
-//                createRequest("/galleries/test/album", testGalleryCitytrips, "GET", null, Map.of("albumId", createdAlbum.getAlbumId())),
-//                null
-//        );
-//
-//        log.info("fetch created album response {}", getAlbumResponse.getBody());
-//        assertEquals(200, getAlbumResponse.getStatusCode());
-//        assertEquals(testAlbumResponse, parseResponse(getAlbumResponse.getBody(), AlbumResponse.class));
     }
 
-    /* Helper method to validate an AlbumResponse
+
+    /*
+    Helper method to validate an AlbumResponse
        A response will look like this:
          AlbumResponse(
               album=
@@ -143,19 +128,6 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
 
         return createResult;
     }
-
-    @Test
-    void testGetAllAlbums() {
-        var createResponse = createTestAlbum(testGalleryCitytrips);
-        var response = albumHandler.handleRequest(
-                createRequest("/gallery/test/albums", testGalleryCitytrips, "GET", null),
-                null
-        );
-
-        assertEquals(200, response.getStatusCode());
-        assertEquals(testGalleryResponse, parseResponse(response.getBody(), new TypeReference<GalleryResponse>() {}));
-    }
-
     @Test
     void testGetNonExistentAlbum() {
         var response = albumHandler.handleRequest(

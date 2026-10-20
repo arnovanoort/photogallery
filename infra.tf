@@ -1,11 +1,12 @@
 # 1. S3 Bucket voor foto's
-resource "aws_s3_bucket" "photo_bucket" {
-  bucket = "yolo-photobook" # Houd deze naam gelijk aan wat je al gedeployed hebt!
+data "aws_s3_bucket" "photo_bucket" {
+  #  bucket = "photogallery-data"
+  bucket = "yolo-photobook"
 }
 
 # Blokkeer publieke toegang
 resource "aws_s3_bucket_public_access_block" "photo_bucket_block" {
-  bucket                  = aws_s3_bucket.photo_bucket.id
+  bucket                  = data.aws_s3_bucket.photo_bucket.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -45,7 +46,7 @@ resource "aws_lambda_function" "album_handler" {
   environment {
     variables = {
       TABLE_NAME      = aws_dynamodb_table.photobook_table.name
-      BUCKET_NAME     = aws_s3_bucket.photo_bucket.id
+      BUCKET_NAME     = data.aws_s3_bucket.photo_bucket.id
     }
   }
 }
@@ -79,12 +80,12 @@ resource "aws_iam_policy" "lambda_s3_dynamo_policy" {
       {
         Action   = "s3:ListBucket"
         Effect   = "Allow"
-        Resource = aws_s3_bucket.photo_bucket.arn
+        Resource = data.aws_s3_bucket.photo_bucket.arn
       },
       {
         Action   = "s3:GetObject"
         Effect   = "Allow"
-        Resource = "${aws_s3_bucket.photo_bucket.arn}/*"
+        Resource = "${data.aws_s3_bucket.photo_bucket.arn}/*"
       },
       {
         Action   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:Scan", "dynamodb:PutItem"]
@@ -132,7 +133,7 @@ resource "aws_apigatewayv2_route" "album_route" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
-resource "aws_apigatewayv2_route" "albums_route" {
+  resource "aws_apigatewayv2_route" "albums_route" {
   api_id    = aws_apigatewayv2_api.photo_api.id
   route_key = "ANY /galleries/{galleryId}/albums"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
@@ -140,7 +141,7 @@ resource "aws_apigatewayv2_route" "albums_route" {
 
 resource "aws_apigatewayv2_route" "import_route" {
   api_id    = aws_apigatewayv2_api.photo_api.id
-  route_key = "ANY /import"
+  route_key = "ANY /galleries/{galleryId}/import"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 # Lambda permissie om aangeroepen te worden door API Gateway
@@ -162,10 +163,11 @@ output "api_url_albums" {
 }
 
 # Automatic resource import blocks to sync existing AWS infrastructure into state
-import {
-  to = aws_s3_bucket.photo_bucket
-  id = "yolo-photobook"
-}
+# import {
+#   to = data.aws_s3_bucket.photo_bucket
+#   id = "yolo-photobook"
+# #  id = "photogallery-data"
+# }
 
 import {
   to = aws_dynamodb_table.photobook_table
