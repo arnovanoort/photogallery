@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @DynamoDbBean
 public class Album {
-    private String photobook;
+    private String gallery;
     private String albumId;
     private String name;
     private LocalDateTime date;

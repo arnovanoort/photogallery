@@ -4,16 +4,13 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.extern.slf4j.Slf4j;
-import nl.arnovanoort.photobook.dto.GalleryAlbumResponse;
-import nl.arnovanoort.photobook.dto.GalleryResponse;
+import nl.arnovanoort.photobook.dto.*;
 import nl.arnovanoort.photobook.model.Album;
-import nl.arnovanoort.photobook.dto.AlbumRequest;
-import nl.arnovanoort.photobook.dto.AlbumResponse;
 import nl.arnovanoort.photobook.model.Photo;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -66,6 +63,8 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
                 createRequest("/citytrips/london/import", testGalleryCitytrips, "POST", null),
                 null
         );
+        assertEquals(201, importAlbumsResponse.getStatusCode());
+        assertEquals(testImportResponse, parseResponse(importAlbumsResponse.getBody(), ImportResponse.class));
 
         var getAlbumsResponse = albumHandler.handleRequest(
                 createRequest("/galleries/test/albums", testGalleryCitytrips, "GET", null),
@@ -87,7 +86,7 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
 
         log.info("fetch created album response {}", getAlbumResponse.getBody());
         assertEquals(200, getAlbumResponse.getStatusCode());
-        assertAlbumResponse(parseResponse(getAlbumResponse.getBody(), AlbumResponse.class), testGalleryCitytrips, testAlbumLondonName, new String[] {testPhotoTowerBridge, testPhotoLondoneye});
+        assertAlbumResponse(parseResponse(getAlbumResponse.getBody(), AlbumResponse.class), testGalleryCitytrips, testAlbumLondonName, new String[] {testPhotoTowerBridge, testPhotoLondoneye}, new String[] { testPresignedUrlLondonEye, testPresignedUrlTowerBridge});
 
     }
 
@@ -97,22 +96,26 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
        A response will look like this:
          AlbumResponse(
               album=
-                  Album(photobook=citytrips_gallery, albumId=02db7f1b-85fb-4394-a7f5-788cd2c5d9f3, name=london, date=2026-10-20T14:15:37.415484, pk=PHOTOBOOK#citytrips_gallery, sk=ALBUM#02db7f1b-85fb-4394-a7f5-788cd2c5d9f3),
+                  Album(photobook=citytrips_gallery, albumId=02db7f1b-85fb-4394-a7f5-788cd2c5d9f3, name=london, date=2026-10-20T14:15:37.415484, pk=PHOTOGALLERY#citytrips_gallery, sk=ALBUM#02db7f1b-85fb-4394-a7f5-788cd2c5d9f3),
               photos=[
                   Photo(albumId=02db7f1b-85fb-4394-a7f5-788cd2c5d9f3, photoId=3a0b35cf-29d6-41cf-89b8-32e8bd571dc6, title=null, s3FileName=citytrips_gallery/london/londoneye.png, date=2026-10-20T14:15:37.686196800, preSignedUrl=https://photogallerybucket.s3.eu-west-1.amazonaws.com/citytrips_gallery/london/londoneye.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20261020T121538Z&X-Amz-SignedHeaders=host&X-Amz-Credential=AKIAWUBBCWMTP4DZPQGD%2F20261020%2Feu-west-1%2Fs3%2Faws4_request&X-Amz-Expires=3600&X-Amz-Signature=60da4302c9124c6aee219410dfc16c8f5c742ca514dcc92180d2ef69189d8d75, pk=ALBUM#02db7f1b-85fb-4394-a7f5-788cd2c5d9f3, sk=PHOTO#3a0b35cf-29d6-41cf-89b8-32e8bd571dc6),
                   Photo(albumId=02db7f1b-85fb-4394-a7f5-788cd2c5d9f3, photoId=68d2770c-09df-41ae-9293-dec6c3393d96, title=null, s3FileName=citytrips_gallery/london/towerbridge.png, date=2026-10-20T14:15:37.686196800, preSignedUrl=https://photogallerybucket.s3.eu-west-1.amazonaws.com/citytrips_gallery/london/towerbridge.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20261020T121538Z&X-Amz-SignedHeaders=host&X-Amz-Credential=AKIAWUBBCWMTP4DZPQGD%2F20261020%2Feu-west-1%2Fs3%2Faws4_request&X-Amz-Expires=3600&X-Amz-Signature=bff020baebd5fc6f1d894f0efe80895423a5ce46eb79afd5a6989b7b76ea94ad, pk=ALBUM#02db7f1b-85fb-4394-a7f5-788cd2c5d9f3, sk=PHOTO#68d2770c-09df-41ae-9293-dec6c3393d96)
                   ]
          )
     */
-    private void assertAlbumResponse(AlbumResponse albumResponse, String expectedGalleryName, String expectedAlbumName, String[] expetedPhotoS3Filenames ) {
+    private void assertAlbumResponse(AlbumResponse albumResponse, String expectedGalleryName, String expectedAlbumName, String[] expetedPhotoS3Filenames, String[] expectedPresignedUrls ) {
         var albums = albumResponse.getAlbum();
         var photos = albumResponse.getPhotos();
-        assertEquals(expectedGalleryName, albums.getPhotobook());
+        assertEquals(expectedGalleryName, albums.getGallery());
         assertEquals(expectedAlbumName, albums.getName());
-        for(String photoS3Filename: expetedPhotoS3Filenames ){
-            assertEquals(photos.stream().map(Photo::getS3FileName).filter(filteredAlbumName -> filteredAlbumName.equals(photoS3Filename)).count(), 1);
-        }
-
+        assertIterableEquals(
+                photos.stream().map(Photo::getS3FileName).sorted().toList(),
+                Arrays.stream(expetedPhotoS3Filenames).sorted().toList()
+        );
+        assertIterableEquals(
+                photos.stream().map(Photo::getPreSignedUrl).map(presignedUrl -> presignedUrl.split("\\?")[0]).sorted().toList(),
+                Arrays.stream(expectedPresignedUrls).sorted().toList()
+        );
     }
 
     private APIGatewayV2HTTPResponse createTestAlbum(String galleryName) {

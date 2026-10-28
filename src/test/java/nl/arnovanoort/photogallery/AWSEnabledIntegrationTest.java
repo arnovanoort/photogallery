@@ -2,6 +2,7 @@ package nl.arnovanoort.photobook;
 
 import nl.arnovanoort.photobook.dto.GalleryAlbumResponse;
 import nl.arnovanoort.photobook.dto.GalleryResponse;
+import nl.arnovanoort.photobook.dto.ImportResponse;
 import nl.arnovanoort.photobook.model.Album;
 import nl.arnovanoort.photobook.dto.AlbumResponse;
 import nl.arnovanoort.photobook.repository.DynamoRepository;
@@ -59,10 +60,11 @@ abstract class AWSEnabledIntegrationTest {
     protected static String testPhotoTowerBridge = "towerbridge.png";
     protected static String testPhotoLondoneye = "londoneye.png";
     protected static String testAlbumParisName = "paris";
+    protected static String testPresignedUrlLondonEye   = "https://photogallerybucket.s3.eu-west-1.amazonaws.com/" + testGalleryCitytrips + "/" + testAlbumLondonName + "/" + testPhotoLondoneye;
+    protected static String testPresignedUrlTowerBridge = "https://photogallerybucket.s3.eu-west-1.amazonaws.com/" + testGalleryCitytrips + "/" + testAlbumLondonName + "/" + testPhotoTowerBridge;
     protected static String testBucketName = "photogallerybucket";
     protected static String testAlbumLondonId = "71094182-8da0-4a8a-8f01-d8c98696ab50";
     protected static String testAlbumParisId  = "b7d131b2-0958-828b-9b90-943f55df0902";
-
     @BeforeAll
     static void setUp() {
         // prepare mocked dynamoDB client
@@ -186,7 +188,7 @@ abstract class AWSEnabledIntegrationTest {
         testAlbumLondonId,
         testAlbumLondonName,
         LocalDateTime.now(albumCreationDateTimeClock),
-        "PHOTOBOOK#" + testGalleryCitytrips,
+        "PHOTOGALLERY#" + testGalleryCitytrips,
         ("ALBUM#"+ testAlbumLondonId)
 
     );
@@ -211,6 +213,11 @@ abstract class AWSEnabledIntegrationTest {
     GalleryResponse testGalleryResponse = new GalleryResponse(
             testGalleryCitytrips ,
             List.of(londonAlbumResponse, parisAlbumResponse)
+    );
+
+    ImportResponse testImportResponse = new ImportResponse(
+            testGalleryCitytrips,
+            2
     );
 
 }

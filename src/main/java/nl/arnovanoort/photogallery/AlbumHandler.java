@@ -6,11 +6,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import nl.arnovanoort.photobook.dto.AlbumImport;
-import nl.arnovanoort.photobook.dto.GalleryResponse;
+import nl.arnovanoort.photobook.dto.*;
 import nl.arnovanoort.photobook.model.Album;
-import nl.arnovanoort.photobook.dto.AlbumRequest;
-import nl.arnovanoort.photobook.dto.AlbumResponse;
 import nl.arnovanoort.photobook.model.Photo;
 import nl.arnovanoort.photobook.repository.DynamoRepository;
 import nl.arnovanoort.photobook.repository.S3Service;
@@ -76,6 +73,11 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
                 log.info("Importing album: {} for gallery {}", importAlbum, gallery);
                 dynamoRepository.importAlbums(importAlbum, gallery);
             });
+            ImportResponse importResponse = ImportResponse.builder()
+                    .galleryName(gallery)
+                    .nrImportedAlbums(albums.size())
+                    .build();
+            return create201Response(importResponse);
         }
 
         log.warn("Method or path not supported: {} {}", httpMethod, routeKey);
@@ -119,7 +121,7 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
                 List<Photo> photos = dynamoRepository.getPhotos("ALBUM#" + album.getAlbumId());
                 log.info("Found {} photos for album: {}", photos.size(), album.getAlbumId());
 
-                photos.forEach(photo -> photo.setPreSignedUrl(s3Service.generatePresignedUrl(photo.getS3FileName())));
+                photos.forEach(photo -> photo.setPreSignedUrl(s3Service.generatePresignedUrl(gallery + "/" + album.getName() + "/" + photo.getS3FileName())));
 
                 AlbumResponse responseBody = AlbumResponse.builder()
                         .album(album)
@@ -139,11 +141,11 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
         log.info("Creating album: name='{}', albumId='{}' for user: {}", albumRequest.getName(), albumId, gallery);
 
         Album album = Album.builder()
-                .photobook(gallery)
+                .gallery(gallery)
                 .albumId(albumId)
                 .name(albumRequest.getName())
                 .date(LocalDateTime.now(clock))
-                .pk("PHOTOBOOK#" + gallery)
+                .pk("PHOTOGALLERY#" + gallery)
                 .sk("ALBUM#" + albumId)
                 .build();
         dynamoRepository.createAlbum(album);

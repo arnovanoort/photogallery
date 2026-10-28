@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DynamoRepository {
     private final DynamoDbEnhancedClient enhancedClient;
-    private final String TABLE_NAME = System.getenv("TABLE_NAME") != null ? System.getenv("TABLE_NAME") : "PhotobookData";
+    private final String TABLE_NAME = System.getenv("TABLE_NAME") != null ? System.getenv("TABLE_NAME") : "PhotogalleryData";
 
     public DynamoRepository() {
         this.enhancedClient = DynamoDbEnhancedClient.builder()
@@ -47,14 +47,14 @@ public class DynamoRepository {
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
 
         return albumTable.query(QueryConditional.keyEqualTo(
-                Key.builder().partitionValue("PHOTOBOOK#" + gallery).build()
+                Key.builder().partitionValue("PHOTOGALLERY#" + gallery).build()
         )).items().stream().collect(Collectors.toList());
     }
 
     public Album getAlbum(String gallery, String albumId) {
         log.info("Querying DynamoDB table '{}' for albumId: {} under gallery: {}", TABLE_NAME, albumId, gallery);
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
-        return albumTable.getItem(Key.builder().partitionValue("PHOTOBOOK#" + gallery).sortValue("ALBUM#" + albumId).build());
+        return albumTable.getItem(Key.builder().partitionValue("PHOTOGALLERY#" + gallery).sortValue("ALBUM#" + albumId).build());
     }
 
     public List<Photo> getPhotos(String albumName) {

@@ -3,7 +3,6 @@ package nl.arnovanoort.photobook.repository;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.arnovanoort.photobook.model.Album;
-import nl.arnovanoort.photobook.AlbumHandler;
 import nl.arnovanoort.photobook.model.Photo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,8 +63,8 @@ class DynamoRepositoryTest {
     @Test
     @SuppressWarnings("unchecked")
     void handleRequest_GetAllAlbums_ReturnsAlbumsList() throws Exception {
-        Album album1 = Album.builder().photobook(GALLERY + "#Album").albumId("1").name("Vakantie 2024").date(LocalDateTime.now()).build();
-        Album album2 = Album.builder().photobook(GALLERY + "#Album").albumId("2").name("Familie Feest").date(LocalDateTime.now()).build();
+        Album album1 = Album.builder().gallery(GALLERY + "#Album").albumId("1").name("Vakantie 2024").date(LocalDateTime.now()).build();
+        Album album2 = Album.builder().gallery(GALLERY + "#Album").albumId("2").name("Familie Feest").date(LocalDateTime.now()).build();
         List<Album> albums = List.of(album1, album2);
 
         // Correcte manier om een SdkIterable te maken van een List

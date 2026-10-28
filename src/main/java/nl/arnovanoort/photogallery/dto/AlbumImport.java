@@ -11,11 +11,11 @@ public record AlbumImport(String albumName, List<String> photoName){
     public Album toAlbum(String gallery){
         String albumId = UUID.randomUUID().toString();
         return Album.builder()
-                .photobook(gallery)
+                .gallery(gallery)
                 .albumId(albumId)
                 .name(albumName)
                 .date(LocalDateTime.now())
-                .pk("PHOTOBOOK#" + gallery)
+                .pk("PHOTOGALLERY#" + gallery)
                 .sk("ALBUM#" + albumId)
                 .build();
     }
