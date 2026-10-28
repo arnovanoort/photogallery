@@ -1,7 +1,7 @@
-package nl.arnovanoort.photobook.repository;
+package nl.arnovanoort.photogallery.repository;
 
 import lombok.extern.slf4j.Slf4j;
-import nl.arnovanoort.photobook.dto.AlbumImport;
+import nl.arnovanoort.photogallery.dto.AlbumImport;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -11,7 +11,6 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 
-import java.io.InputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,7 +67,7 @@ public class S3Service {
 
         String galleryPrefix = galleryName.endsWith("/") ? galleryName : galleryName + "/";
 
-        // Delimiter "/" zorgt ervoor dat S3 stopt bij de eerste submap
+        // Delimiter "/" ensures S3 stops at first subfolder
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(bucketName)
                 .delimiter("/")
@@ -77,12 +76,10 @@ public class S3Service {
 
         ListObjectsV2Response response = s3Client.listObjectsV2(request);
 
-        System.out.println("Gevonden mappen in bucket '" + bucketName + "':");
-
         for (CommonPrefix commonPrefix : response.commonPrefixes()) {
             String fullAlbumPrefix = commonPrefix.prefix(); // bijv: "citytrips_gallery/london/"
 
-            // 2. Haal de pure albumnaam eruit ("london")
+            // 2. get albumname ("london")
             String cleanAlbumName = fullAlbumPrefix
                     .substring(galleryPrefix.length())
                     .replace("/", "");
@@ -90,7 +87,7 @@ public class S3Service {
             albums.add(
                 new AlbumImport(
                         cleanAlbumName,                     // "london"
-                        listPhotosInAlbum(fullAlbumPrefix)  // zoekt met "citytrips_gallery/london/"
+                        listPhotosInAlbum(fullAlbumPrefix)  // searches with "citytrips_gallery/london/"
                 )
             );
             log.info("adding " + commonPrefix + " to " + albums.getLast());
@@ -103,8 +100,6 @@ public class S3Service {
         List<String> photos = new ArrayList<>();
 
         log.info("Reading bucket: " + bucketName);
-        // Geen delimiter, wel prefix om alle objecten in de folder te krijgen
-//        String prefix = galleryName + "/" + albumPrefix;
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(bucketName)
                 .prefix(albumPrefix)
@@ -113,7 +108,7 @@ public class S3Service {
         ListObjectsV2Response response = s3Client.listObjectsV2(request);
 
         for (var s3Object : response.contents()) {
-            // Sla de folder zelf over (bijv. "album1/" zonder bestandsnaam)
+            // fetch filename from s3 path
             if (!s3Object.key().equals(albumPrefix)) {
                 String filename = s3Object.key().split("/")[2];
                 photos.add(filename);
