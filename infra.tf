@@ -1,10 +1,13 @@
-# 1. S3 Bucket voor foto's
-data "aws_s3_bucket" "photo_bucket" {
-  #  bucket = "photogallery-data"
-  bucket = "yolo-photobook"
+provider "aws" {
+  region = "eu-west-1"
 }
 
-# Blokkeer publieke toegang
+# 1. S3 Bucket containing the albums/pictures
+  data "aws_s3_bucket" "photo_bucket" {
+  bucket = "photogallery-data"
+}
+
+# Block public access
 resource "aws_s3_bucket_public_access_block" "photo_bucket_block" {
   bucket                  = data.aws_s3_bucket.photo_bucket.id
   block_public_acls       = true
@@ -13,9 +16,9 @@ resource "aws_s3_bucket_public_access_block" "photo_bucket_block" {
   restrict_public_buckets = true
 }
 
-# 2. DynamoDB Tabel
-resource "aws_dynamodb_table" "photobook_table" {
-  name           = "PhotobookData"
+# 2. DynamoDB table
+resource "aws_dynamodb_table" "photogallery_table" {
+  name           = "PhotogalleryData"
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = "pk"
   range_key      = "sk"
@@ -34,26 +37,26 @@ resource "aws_dynamodb_table" "photobook_table" {
 # 3. Lambda Functie
 resource "aws_lambda_function" "album_handler" {
   function_name    = "photo-album-handler"
-  filename         = "target/photobook-1.0-SNAPSHOT.jar"
-  handler          = "nl.arnovanoort.photobook.AlbumHandler::handleRequest"
+  filename         = "target/photogallery-1.0-SNAPSHOT.jar"
+  handler          = "nl.arnovanoort.photogallery.AlbumHandler::handleRequest"
   runtime          = "java21"
-  role             = aws_iam_role.photobook_lambda_exec_role.arn
+  role             = aws_iam_role.photogallery_lambda_exec_role.arn
   memory_size      = 512
   timeout          = 30
 
-  source_code_hash = fileexists("target/photobook-1.0-SNAPSHOT.jar") ? filebase64sha256("target/photobook-1.0-SNAPSHOT.jar") : null
+  source_code_hash = fileexists("target/photogallery-1.0-SNAPSHOT.jar") ? filebase64sha256("target/photogallery-1.0-SNAPSHOT.jar") : null
 
   environment {
     variables = {
-      TABLE_NAME      = aws_dynamodb_table.photobook_table.name
+      TABLE_NAME      = aws_dynamodb_table.photogallery_table.name
       BUCKET_NAME     = data.aws_s3_bucket.photo_bucket.id
     }
   }
 }
 
 # 4. IAM Role & Policies
-resource "aws_iam_role" "photobook_lambda_exec_role" {
-  name = "photobook_lambda_exec_role"
+resource "aws_iam_role" "photogallery_lambda_exec_role" {
+  name = "photogallery_lambda_exec_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -68,7 +71,7 @@ resource "aws_iam_role" "photobook_lambda_exec_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
-  role       = aws_iam_role.photobook_lambda_exec_role.name
+  role       = aws_iam_role.photogallery_lambda_exec_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
@@ -90,20 +93,20 @@ resource "aws_iam_policy" "lambda_s3_dynamo_policy" {
       {
         Action   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:Scan", "dynamodb:PutItem"]
         Effect   = "Allow"
-        Resource = aws_dynamodb_table.photobook_table.arn
+        Resource = aws_dynamodb_table.photogallery_table.arn
       }
     ]
   })
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_s3_dynamo_attach" {
-  role       = aws_iam_role.photobook_lambda_exec_role.name
+  role       = aws_iam_role.photogallery_lambda_exec_role.name
   policy_arn = aws_iam_policy.lambda_s3_dynamo_policy.arn
 }
 
 # 5. API Gateway (HTTP API)
 resource "aws_apigatewayv2_api" "photo_api" {
-  name          = "photobook-api"
+  name          = "photogallery-api"
   protocol_type = "HTTP"
 
   cors_configuration {
@@ -144,7 +147,7 @@ resource "aws_apigatewayv2_route" "import_route" {
   route_key = "ANY /galleries/{galleryId}/import"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
-# Lambda permissie om aangeroepen te worden door API Gateway
+# Lambda permission enabling call from api gateway
 resource "aws_lambda_permission" "api_gw_lambda" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -153,43 +156,8 @@ resource "aws_lambda_permission" "api_gw_lambda" {
   source_arn    = "${aws_apigatewayv2_api.photo_api.execution_arn}/*/*"
 }
 
-# Output de API URL
-output "api_url_album" {
-  value = "${aws_apigatewayv2_stage.default.invoke_url}/album"
-}
-
+# Output API URL
 output "api_url_albums" {
   value = "${aws_apigatewayv2_stage.default.invoke_url}/albums"
 }
 
-# Automatic resource import blocks to sync existing AWS infrastructure into state
-# import {
-#   to = data.aws_s3_bucket.photo_bucket
-#   id = "yolo-photobook"
-# #  id = "photogallery-data"
-# }
-
-import {
-  to = aws_dynamodb_table.photobook_table
-  id = "PhotobookData"
-}
-
-import {
-  to = aws_iam_role.photobook_lambda_exec_role
-  id = "lambda_exec_role"
-}
-
-import {
-  to = aws_lambda_function.album_handler
-  id = "photo-album-handler"
-}
-
-import {
-  to = aws_iam_policy.lambda_s3_dynamo_policy
-  id = "arn:aws:iam::455335916326:policy/LambdaS3DynamoPolicy"
-}
-
-import {
-  to = aws_lambda_permission.api_gw_lambda
-  id = "photo-album-handler/AllowAPIGatewayInvoke"
-}

@@ -1,4 +1,4 @@
-package nl.arnovanoort.photogallery.repository;
+package nl.arnovanoort.photogallery.service;
 
 import lombok.extern.slf4j.Slf4j;
 import nl.arnovanoort.photogallery.dto.AlbumImport;
@@ -30,7 +30,7 @@ public class S3Service {
 
     public S3Service() {
         String awsRegion = System.getenv("AWS_REGION") != null ? System.getenv("AWS_REGION")  : "eu-west-1";
-        this.bucketName = System.getenv("BUCKET_NAME") != null ? System.getenv("BUCKET_NAME") : "photo-bucket";
+        this.bucketName = System.getenv("BUCKET_NAME") != null ? System.getenv("BUCKET_NAME") : "photogallery-data";
         this.s3Presigner = S3Presigner.create();
         this.s3Client = createS3Client(awsRegion);
     }
@@ -77,7 +77,7 @@ public class S3Service {
         ListObjectsV2Response response = s3Client.listObjectsV2(request);
 
         for (CommonPrefix commonPrefix : response.commonPrefixes()) {
-            String fullAlbumPrefix = commonPrefix.prefix(); // bijv: "citytrips_gallery/london/"
+            String fullAlbumPrefix = commonPrefix.prefix(); // e.g. "citytrips_gallery/london/"
 
             // 2. get albumname ("london")
             String cleanAlbumName = fullAlbumPrefix
@@ -109,7 +109,7 @@ public class S3Service {
 
         for (var s3Object : response.contents()) {
             // fetch filename from s3 path
-            if (!s3Object.key().equals(albumPrefix)) {
+            if (!s3Object.key().equals(albumPrefix) && s3Object.key().split("/").length > 1) {
                 String filename = s3Object.key().split("/")[2];
                 photos.add(filename);
                 log.info("adding file " + filename + " to album " + albumPrefix);

@@ -1,4 +1,4 @@
-package nl.arnovanoort.photobook.dto;
+package nl.arnovanoort.photogallery.dto;
 
 import lombok.*;
 

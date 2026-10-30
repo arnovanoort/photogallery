@@ -1,9 +1,9 @@
-package nl.arnovanoort.photobook.repository;
+package nl.arnovanoort.photogallery.repository;
 
 import lombok.extern.slf4j.Slf4j;
-import nl.arnovanoort.photobook.dto.AlbumImport;
-import nl.arnovanoort.photobook.model.Album;
-import nl.arnovanoort.photobook.model.Photo;
+import nl.arnovanoort.photogallery.dto.AlbumImport;
+import nl.arnovanoort.photogallery.model.Album;
+import nl.arnovanoort.photogallery.model.Photo;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
@@ -17,13 +17,13 @@ import java.util.stream.Collectors;
 /**
  * each Photo has a partition key of the form 123#Photo For sortkey
  *   METADATA the metadata for that Album will be retrieved
- *   PHOTO@1234 will retrieve a specific foto.
+ *   PHOTO@1234 will retrieve a specific photo.
  *   No metadata will retrieve everything for that album(metadata and photos)
  *
  *
- *   Partition Key (PK)	Sort Key (SK)	Type	Album Naam	        Foto URL
- *   PHOTOBOOKNAME#arno ALBUM#123	    Album	"Zomervakantie"	    N/A
- *   PHOTOBOOKNAME#arno ALBUM#456	    Album	"Weekendje weg"	    N/A
+ *   Partition Key (PK)	Sort Key (SK)	Type	Album name	        Photo URL
+ *   GALLERYNAME#arno   ALBUM#123	    Album	"summerholiday"	    N/A
+ *   GALLERYNAME#arno   ALBUM#456	    Album	"weekendtrip"	    N/A
  *   ALBUM#123  	    PHOTO#abc	    Photo	N/A	                https://.../abc.jpg
  *   ALBUM#123	        PHOTO#xyz	    Photo	N/A	                https://.../xyz.jpg
  */
@@ -43,7 +43,7 @@ public class DynamoRepository {
     }
 
     public List<Album> getAlbums(String gallery) {
-        log.info("Querying DynamoDB table '{}' for photobook: {}", TABLE_NAME, gallery);
+        log.info("Querying DynamoDB table '{}' for gallery: {}", TABLE_NAME, gallery);
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
 
         return albumTable.query(QueryConditional.keyEqualTo(

@@ -1,11 +1,11 @@
-package nl.arnovanoort.photobook.dto;
+package nl.arnovanoort.photogallery.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import nl.arnovanoort.photobook.model.Album;
-import nl.arnovanoort.photobook.model.Photo;
+import nl.arnovanoort.photogallery.model.Album;
+import nl.arnovanoort.photogallery.model.Photo;
 
 import java.util.List;
 

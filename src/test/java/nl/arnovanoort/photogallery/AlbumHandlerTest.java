@@ -1,10 +1,14 @@
-package nl.arnovanoort.photobook;
+package nl.arnovanoort.photogallery;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
-import nl.arnovanoort.photobook.repository.DynamoRepository;
-import nl.arnovanoort.photobook.repository.S3Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import nl.arnovanoort.photogallery.dto.ErrorResponse;
+import nl.arnovanoort.photogallery.model.Album;
+import nl.arnovanoort.photogallery.repository.DynamoRepository;
+import nl.arnovanoort.photogallery.service.AlbumService;
+import nl.arnovanoort.photogallery.service.S3Service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,12 +21,14 @@ import java.time.ZoneId;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AlbumHandlerTest {
 
     private AlbumHandler handler;
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Mock
     private DynamoRepository mockDynamoRepository;
@@ -33,31 +39,63 @@ class AlbumHandlerTest {
 
     private Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
+    private String testAlbumName = "Test album";
+    private Album testAlbum;
+
     @BeforeEach
     void setUp() {
-        handler = new AlbumHandler(mockDynamoRepository, mockS3Service, clock);
+        AlbumService albumService = new AlbumService(mockS3Service, mockDynamoRepository, clock);
+        handler = new AlbumHandler(albumService);
+        this.testAlbum = new Album(testAlbumName, "Test description");
     }
 
     @Test
-    void handleRequest_AlbumNotFound_Returns404() {
-        when(mockDynamoRepository.getAlbum(AlbumHandler.DEFAULT_GALLERY, "ALBUM#99")).thenReturn(null);
+    void handleRequest_Album_Found() throws Exception {
+        // prepare
+        when(mockDynamoRepository.getAlbum(AlbumHandler.DEFAULT_GALLERY, testAlbumName)).thenReturn(testAlbum);
+        APIGatewayV2HTTPEvent request = createGetAlbumRequest();
+        request.setQueryStringParameters(Map.of("albumId", testAlbumName));
 
-        APIGatewayV2HTTPEvent request = new APIGatewayV2HTTPEvent();
-        request.setRawPath("/galleries/test/album");
+        // execute
+        APIGatewayV2HTTPResponse response = handler.handleRequest(request, context);
 
+        // assert
+        assertEquals(404, response.getStatusCode());
+        ErrorResponse errorResponse = objectMapper.readValue(response.getBody(), ErrorResponse.class);
+        assertEquals(404, errorResponse.status());
+        assertEquals("Album "+ testAlbumName + " not found", errorResponse.message());
+        assertNotNull(errorResponse.timestamp());
+    }
+
+    @Test
+    void handleRequest_AlbumNotFound_Returns404() throws Exception {
+        // prepare
+        when(mockDynamoRepository.getAlbum(AlbumHandler.DEFAULT_GALLERY, testAlbumName)).thenReturn(null);
+        APIGatewayV2HTTPEvent request = createGetAlbumRequest();
+        request.setQueryStringParameters(Map.of("albumId", testAlbumName));
+
+        // execute
+        APIGatewayV2HTTPResponse response = handler.handleRequest(request, context);
+
+        // assert
+        assertEquals(404, response.getStatusCode());
+        ErrorResponse errorResponse = objectMapper.readValue(response.getBody(), ErrorResponse.class);
+        assertEquals(404, errorResponse.status());
+        assertEquals("Album "+ testAlbumName + " not found", errorResponse.message());
+        assertNotNull(errorResponse.timestamp());
+    }
+
+    private APIGatewayV2HTTPEvent createGetAlbumRequest(){
         APIGatewayV2HTTPEvent.RequestContext requestContext = new APIGatewayV2HTTPEvent.RequestContext();
         APIGatewayV2HTTPEvent.RequestContext.Http http = new APIGatewayV2HTTPEvent.RequestContext.Http();
-        http.setMethod("GET");
+        APIGatewayV2HTTPEvent request = new APIGatewayV2HTTPEvent();
+
+        request.setRawPath("/galleries/test/album");
         http.setPath("/galleries/test/album");
+        http.setMethod("GET");
         requestContext.setHttp(http);
         request.setRequestContext(requestContext);
         request.setRouteKey("GET /galleries/{galleryId}/album");
-
-        request.setQueryStringParameters(Map.of("albumId", "ALBUM#99"));
-
-        APIGatewayV2HTTPResponse response = handler.handleRequest(request, context);
-
-        assertEquals(404, response.getStatusCode());
-        assertEquals("Album ALBUM#99not found", response.getBody());
+        return request;
     }
 }

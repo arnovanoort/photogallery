@@ -1,4 +1,4 @@
-package nl.arnovanoort.photobook.model;
+package nl.arnovanoort.photogallery.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

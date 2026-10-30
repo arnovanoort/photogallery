@@ -1,4 +1,4 @@
-package nl.arnovanoort.photobook.model;
+package nl.arnovanoort.photogallery.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,7 +17,7 @@ public class Photo {
     private String title;
     private String s3FileName;
     private String date;
-    // Tijdelijk veld voor de Pre-signed URL
+    // Stores generated temp Pre-signed URL
     private String preSignedUrl;
 
     private String pk;

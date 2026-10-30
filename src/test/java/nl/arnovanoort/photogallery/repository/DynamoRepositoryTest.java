@@ -1,9 +1,9 @@
-package nl.arnovanoort.photobook.repository;
+package nl.arnovanoort.photogallery.repository;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import nl.arnovanoort.photobook.model.Album;
-import nl.arnovanoort.photobook.model.Photo;
+import nl.arnovanoort.photogallery.model.Album;
+import nl.arnovanoort.photogallery.model.Photo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,7 +67,7 @@ class DynamoRepositoryTest {
         Album album2 = Album.builder().gallery(GALLERY + "#Album").albumId("2").name("Familie Feest").date(LocalDateTime.now()).build();
         List<Album> albums = List.of(album1, album2);
 
-        // Correcte manier om een SdkIterable te maken van een List
+        // Correct way to create SdkIterable from List
         SdkIterable<Album> mockSdkIterable = new SdkIterable<Album>() {
             @Override
             public Iterator<Album> iterator() {
@@ -75,7 +75,7 @@ class DynamoRepositoryTest {
             }
         };
 
-        // Mock de PageIterable die door .scan() wordt geretourneerd
+        // Mock PageIterable returned by .scan()
         PageIterable<Album> mockPageIterable = mock(PageIterable.class);
         when(mockPageIterable.items()).thenReturn(mockSdkIterable);
 
@@ -84,7 +84,6 @@ class DynamoRepositoryTest {
 
         List<Album> albumsResult = repository.getAlbums(GALLERY);
 
-        // De handler retourneert momenteel een List<Album> direct, niet verpakt in AlbumsListResponse
         assertEquals(albums, albumsResult);
     }
 }

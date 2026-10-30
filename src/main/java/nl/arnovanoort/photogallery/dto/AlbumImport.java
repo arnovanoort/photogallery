@@ -1,7 +1,7 @@
-package nl.arnovanoort.photobook.dto;
+package nl.arnovanoort.photogallery.dto;
 
-import nl.arnovanoort.photobook.model.Album;
-import nl.arnovanoort.photobook.model.Photo;
+import nl.arnovanoort.photogallery.model.Album;
+import nl.arnovanoort.photogallery.model.Photo;
 
 import java.time.LocalDateTime;
 import java.util.List;

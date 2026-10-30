@@ -1,12 +1,13 @@
-package nl.arnovanoort.photobook;
+package nl.arnovanoort.photogallery;
 
-import nl.arnovanoort.photobook.dto.GalleryAlbumResponse;
-import nl.arnovanoort.photobook.dto.GalleryResponse;
-import nl.arnovanoort.photobook.dto.ImportResponse;
-import nl.arnovanoort.photobook.model.Album;
-import nl.arnovanoort.photobook.dto.AlbumResponse;
-import nl.arnovanoort.photobook.repository.DynamoRepository;
-import nl.arnovanoort.photobook.repository.S3Service;
+import nl.arnovanoort.photogallery.dto.GalleryAlbumResponse;
+import nl.arnovanoort.photogallery.dto.GalleryResponse;
+import nl.arnovanoort.photogallery.dto.ImportResponse;
+import nl.arnovanoort.photogallery.model.Album;
+import nl.arnovanoort.photogallery.dto.AlbumResponse;
+import nl.arnovanoort.photogallery.repository.DynamoRepository;
+import nl.arnovanoort.photogallery.service.AlbumService;
+import nl.arnovanoort.photogallery.service.S3Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.localstack.LocalStackContainer;
@@ -96,8 +97,9 @@ abstract class AWSEnabledIntegrationTest {
         // clock used to inject into an (to be created) album
         albumCreationDateTimeClock = Clock.fixed(Instant.parse("2026-08-28T13:30:00Z"), ZoneId.of("UTC"));
 
+        AlbumService albumService = new AlbumService(s3Service, dynamoRepository, albumCreationDateTimeClock);
         // create the album handler with mocked repo/s3 and the albumCreationDateTime
-        albumHandler = new AlbumHandler(dynamoRepository, s3Service, albumCreationDateTimeClock);
+        albumHandler = new AlbumHandler(albumService);
 
         // create and setup dynamoDB tables
         createMockedDynamoTables();
@@ -127,20 +129,20 @@ abstract class AWSEnabledIntegrationTest {
         try{
             InputStream is = AWSEnabledIntegrationTest.class.getResourceAsStream(resourcePath);
             if (is == null) {
-                throw new IllegalArgumentException("Resource niet gevonden op pad: " + resourcePath);
+                throw new IllegalArgumentException("Resource not found for path: " + resourcePath);
             }
 
             return is.readAllBytes();
             }
         catch (IOException e){
-            throw new RuntimeException("Fout bij het lezen van test-foto: " + resourcePath, e);
+            throw new RuntimeException("error reading test photo: " + resourcePath, e);
         }
     }
 
     private static void createMockedDynamoTables() {
         try {
             dynamoDbClient.createTable(builder -> builder
-                    .tableName("PhotobookData")
+                    .tableName("PhotogalleryData")
                     .attributeDefinitions(
                             AttributeDefinition.builder()
                                     .attributeName("pk")
