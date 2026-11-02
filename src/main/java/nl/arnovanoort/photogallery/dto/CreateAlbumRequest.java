@@ -6,7 +6,7 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AlbumRequest {
+public class CreateAlbumRequest {
     private String name;
     private String albumId;
 }

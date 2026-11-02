@@ -30,7 +30,14 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
         this.albumService = albumService;
     }
 
-    /* needs refactoring to deal with individual api calls from the lambdas */
+    /**
+     * entrypoint for the API Gateway, from here will determine the request and propagate it to the correct handler
+     * TODO needs refactoring to deal with individual api calls from the lambdas
+     *
+     * @param request The Lambda Function input
+     * @param context The Lambda execution environment context object.
+     * @return response with execution result
+     */
     @Override
     public APIGatewayV2HTTPResponse handleRequest(APIGatewayV2HTTPEvent request, Context context) {
         String gallery = getGalleryId(request).orElse(DEFAULT_GALLERY);
@@ -51,11 +58,18 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
                 return handleGetSingleAlbum(gallery, request);
             }
         } else if (routeKey != null && routeKey.endsWith("/import")) {
-            return handleImportAlbums(gallery);
+            if ("POST".equals(httpMethod)){
+                return handleImportAlbums(gallery);
+            }
         }
 
         log.warn("Method or path not supported: {} {}", httpMethod, routeKey);
         return ApiResponse.methodNotAllowed("Method " + httpMethod + " not allowed for path " + routeKey);
+    }
+
+    private APIGatewayV2HTTPResponse handleGetAllAlbums(String gallery) {
+        List<Album> allAlbums = albumService.getAlbums(gallery);
+        return ApiResponse.ok(GalleryResponse.fromAlbums(gallery, allAlbums));
     }
 
     private APIGatewayV2HTTPResponse handleImportAlbums(String gallery) {
@@ -63,6 +77,12 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
         return ApiResponse.created(importResponse);
     }
 
+    /**
+     * Handles the GET /album request, propages actions to the service layer and returns the album or a 404 if not found
+     * @param gallery name of the gallery to search the album in
+     * @param request request containing the album id
+     * @return AlbumResponse or 404 if not found
+     */
     private APIGatewayV2HTTPResponse handleGetSingleAlbum(String gallery, APIGatewayV2HTTPEvent request) {
         Optional<String> albumIdOp = getAlbumId(request);
         return albumIdOp
@@ -80,18 +100,13 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
 
     private APIGatewayV2HTTPResponse handleCreateAlbum(String gallery, APIGatewayV2HTTPEvent request) {
         try {
-            AlbumRequest albumRequest = objectMapper.readValue(request.getBody(), AlbumRequest.class);
-            Album album = albumService.createAlbum(gallery, albumRequest);
+            CreateAlbumRequest createAlbumRequest = objectMapper.readValue(request.getBody(), CreateAlbumRequest.class);
+            Album album = albumService.createAlbum(gallery, createAlbumRequest);
             return ApiResponse.created(album);
         } catch (Exception e) {
             log.error("Failed to parse request body: {}", request.getBody(), e);
             return ApiResponse.badRequest("Invalid JSON body");
         }
-    }
-
-    private APIGatewayV2HTTPResponse handleGetAllAlbums(String gallery) {
-        List<Album> allAlbums = albumService.getAlbums(gallery);
-        return ApiResponse.ok(GalleryResponse.fromAlbums(gallery, allAlbums));
     }
 
     private Optional<String> getAlbumId(APIGatewayV2HTTPEvent request) {

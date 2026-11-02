@@ -19,7 +19,7 @@ public class GalleryResponse {
     public static GalleryResponse fromAlbums(String galleryName, List<Album> albums){
         return GalleryResponse.builder()
             .name(galleryName)
-            .albums(GalleryAlbumResponse.fromAlbums(albums))
+            .albums(albums.stream().map(GalleryAlbumResponse::fromAlbum).toList())
             .build();
     }
 }

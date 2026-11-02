@@ -12,6 +12,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -51,17 +52,19 @@ public class DynamoRepository {
         )).items().stream().collect(Collectors.toList());
     }
 
-    public Album getAlbum(String gallery, String albumId) {
+    public Optional<Album> getAlbum(String gallery, String albumId) {
         log.info("Querying DynamoDB table '{}' for albumId: {} under gallery: {}", TABLE_NAME, albumId, gallery);
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
-        return albumTable.getItem(Key.builder().partitionValue("PHOTOGALLERY#" + gallery).sortValue("ALBUM#" + albumId).build());
+        return Optional.ofNullable(
+            albumTable.getItem(Key.builder().partitionValue("PHOTOGALLERY#" + gallery).sortValue("ALBUM#" + albumId).build())
+        );
     }
 
-    public List<Photo> getPhotos(String albumName) {
-        log.info("Querying DynamoDB table '{}' for photos under album: {}", TABLE_NAME, albumName);
+    public List<Photo> getPhotos(String albumId) {
+        log.info("Querying DynamoDB table '{}' for photos under album: {}", TABLE_NAME, albumId);
         DynamoDbTable<Photo> photoTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Photo.class));
         return photoTable.query(QueryConditional.sortBeginsWith(
-                        Key.builder().partitionValue(albumName).sortValue("PHOTO#").build()))
+                        Key.builder().partitionValue(albumId ).sortValue("PHOTO#").build()))
                 .items().stream().collect(Collectors.toList());
     }
 

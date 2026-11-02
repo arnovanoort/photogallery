@@ -104,13 +104,13 @@ class AlbumHandlerIntegrationTest extends AWSEnabledIntegrationTest {
     }
 
     private APIGatewayV2HTTPResponse createTestAlbum(String galleryName) {
-        AlbumRequest albumRequest = AlbumRequest.builder()
+        CreateAlbumRequest createAlbumRequest = CreateAlbumRequest.builder()
                 .name(testAlbum.getName())
                 .albumId(testAlbumLondonId)
                 .build();
 
         return albumHandler.handleRequest(
-                createRequest("/gallery/test/albums", galleryName, "POST", albumRequest),
+                createRequest("/gallery/test/albums", galleryName, "POST", createAlbumRequest),
                 null
         );
     }

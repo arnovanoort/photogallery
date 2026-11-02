@@ -1,7 +1,7 @@
 package nl.arnovanoort.photogallery.service;
 
 import nl.arnovanoort.photogallery.dto.AlbumImport;
-import nl.arnovanoort.photogallery.dto.AlbumRequest;
+import nl.arnovanoort.photogallery.dto.CreateAlbumRequest;
 import nl.arnovanoort.photogallery.dto.AlbumResponse;
 import nl.arnovanoort.photogallery.dto.ImportResponse;
 
@@ -16,7 +16,6 @@ import nl.arnovanoort.photogallery.model.Photo;
 import nl.arnovanoort.photogallery.repository.DynamoRepository;
 
 @Slf4j
-
 public class AlbumService {
 
     private S3Service s3Service;
@@ -57,10 +56,10 @@ public class AlbumService {
     }
 
     public Optional<AlbumResponse> getAlbum(String gallery, String albumId) {
-        return Optional.ofNullable(dynamoRepository.getAlbum(gallery, albumId))
+        return dynamoRepository.getAlbum(gallery, albumId)
                 .map(album -> {
                     // extract album and process photos.
-                    List<Photo> photos = dynamoRepository.getPhotos("ALBUM#" + album.getAlbumId());
+                    List<Photo> photos = dynamoRepository.getPhotos(album.getAlbumId());
                     log.info("Found {} photos for album: {}", photos.size(), album.getAlbumId());
 
                     photos.forEach(photo ->
@@ -74,16 +73,16 @@ public class AlbumService {
                 });
     }
 
-    public Album createAlbum(String gallery, AlbumRequest albumRequest) {
-        String albumId = Optional.ofNullable(albumRequest.getAlbumId())
+    public Album createAlbum(String gallery, CreateAlbumRequest createAlbumRequest) {
+        String albumId = Optional.ofNullable(createAlbumRequest.getAlbumId())
                 .orElseGet(() -> java.util.UUID.randomUUID().toString());
 
-        log.info("Creating album: name='{}', albumId='{}' for user: {}", albumRequest.getName(), albumId, gallery);
+        log.info("Creating album: name='{}', albumId='{}' for user: {}", createAlbumRequest.getName(), albumId, gallery);
 
         Album album = Album.builder()
                 .gallery(gallery)
                 .albumId(albumId)
-                .name(albumRequest.getName())
+                .name(createAlbumRequest.getName())
                 .date(LocalDateTime.now(clock))
                 .pk("PHOTOGALLERY#" + gallery)
                 .sk("ALBUM#" + albumId)
