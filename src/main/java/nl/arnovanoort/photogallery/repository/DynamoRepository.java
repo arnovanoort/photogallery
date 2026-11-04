@@ -89,9 +89,5 @@ public class DynamoRepository {
             log.info("writing photo {} to dynamo", photo);
             createPhoto(photo);
         });
-
-
-
     }
-
 }
