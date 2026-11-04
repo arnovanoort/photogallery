@@ -64,7 +64,7 @@ public class DynamoRepository {
         log.info("Querying DynamoDB table '{}' for photos under album: {}", TABLE_NAME, albumId);
         DynamoDbTable<Photo> photoTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Photo.class));
         return photoTable.query(QueryConditional.sortBeginsWith(
-                        Key.builder().partitionValue(albumId ).sortValue("PHOTO#").build()))
+                        Key.builder().partitionValue("ALBUM#" + albumId).sortValue("PHOTO#").build()))
                 .items().stream().collect(Collectors.toList());
     }
 

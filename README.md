@@ -79,7 +79,7 @@ Infrastructure is managed with Terraform.
    ```bash
    terraform apply
    ```
-   *Note: Ensure the variables in `infra.tf` (such as `BUCKET_NAME` and `TABLE_NAME`) match your target AWS resources.*
+   *Note: Ensure the variables in `terraform/backend.tf` (such as `BUCKET_NAME` and `TABLE_NAME`) match your target AWS resources.*
 
 ## DynamoDB Data Model (Single Table Design)
 | Entity | Partition Key (PK) | Sort Key (SK) | Key Attributes                                        |

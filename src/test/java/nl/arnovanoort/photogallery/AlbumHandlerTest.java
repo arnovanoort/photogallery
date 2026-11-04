@@ -258,10 +258,10 @@ class AlbumHandlerTest {
         APIGatewayV2HTTPEvent.RequestContext.Http http = new APIGatewayV2HTTPEvent.RequestContext.Http();
         APIGatewayV2HTTPEvent request = new APIGatewayV2HTTPEvent();
 
-        http.setMethod("GET");
+        http.setMethod("POST");
         requestContext.setHttp(http);
         request.setRequestContext(requestContext);
-        request.setRouteKey("GET /galleries/{galleryId}/import");
+        request.setRouteKey("POST /galleries/{galleryId}/import");
         return request;
     }
 
