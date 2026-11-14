@@ -36,6 +36,13 @@ public class AlbumService {
 
     }
 
+    /**
+     * This method takes a gallery, will use that to find existing albums on S3
+     * and register those (and its photos) in DynamoDb
+     *
+     * @param gallery
+     * @return ImportResponse containing the result of the import
+     */
     public ImportResponse importAlbums(String gallery) {
         List<AlbumImport> albums = s3Service.listAlbums(gallery);
         albums.forEach(importAlbum -> {
@@ -44,10 +51,16 @@ public class AlbumService {
         });
         return  ImportResponse.builder()
                 .galleryName(gallery)
-                .nrImportedAlbums(albums.size())
+                .albumNames(albums.stream().map(album -> album.albumName()).toList())
                 .build();
     }
 
+    /**
+     * Fetch all albums for a gallery from the repository
+     *
+     * @param gallery
+     * @return
+     */
     public List<Album> getAlbums(String gallery){
         log.info("Fetching all albums for user: {}", gallery);
         List<Album> allAlbums = dynamoRepository.getAlbums(gallery);
@@ -79,6 +92,7 @@ public class AlbumService {
 
         log.info("Creating album: name='{}', albumId='{}' for user: {}", createAlbumRequest.getName(), albumId, gallery);
 
+        // TODO: Album should not know about pk/sk
         Album album = Album.builder()
                 .gallery(gallery)
                 .albumId(albumId)

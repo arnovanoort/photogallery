@@ -30,12 +30,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
 
 /**
  * Contains generic setup for AWS integration tests
  */
-abstract class AWSEnabledIntegrationTest {
+abstract class AbstractAWSEnabledIntegrationTest {
     @Container
     static LocalStackContainer localstack = new LocalStackContainer(
             DockerImageName.parse("localstack/localstack:3.8.1")
@@ -66,6 +67,7 @@ abstract class AWSEnabledIntegrationTest {
     protected static String testBucketName = "photogallerybucket";
     protected static String testAlbumLondonId = "71094182-8da0-4a8a-8f01-d8c98696ab50";
     protected static String testAlbumParisId  = "b7d131b2-0958-828b-9b90-943f55df0902";
+
     @BeforeAll
     static void setUp() {
         // prepare mocked dynamoDB client
@@ -127,7 +129,7 @@ abstract class AWSEnabledIntegrationTest {
 
     private static byte[] readFile(String resourcePath) {
         try{
-            InputStream is = AWSEnabledIntegrationTest.class.getResourceAsStream(resourcePath);
+            InputStream is = AbstractAWSEnabledIntegrationTest.class.getResourceAsStream(resourcePath);
             if (is == null) {
                 throw new IllegalArgumentException("Resource not found for path: " + resourcePath);
             }
@@ -219,7 +221,7 @@ abstract class AWSEnabledIntegrationTest {
 
     ImportResponse testImportResponse = new ImportResponse(
             testGalleryCitytrips,
-            2
+            Arrays.asList(new String[]{testAlbumLondonName, testAlbumParisName})
     );
 
 }

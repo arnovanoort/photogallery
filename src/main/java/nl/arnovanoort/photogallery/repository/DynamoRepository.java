@@ -80,6 +80,7 @@ public class DynamoRepository {
         albumTable.putItem(photo);
     }
 
+    // TODO: too much logic in here: refactor
     public void importAlbums(AlbumImport albumImport, String gallery) {
         Album album = albumImport.toAlbum(gallery);
         createAlbum(album);

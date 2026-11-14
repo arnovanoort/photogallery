@@ -28,6 +28,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+/*
+ * There is not much benefit in the test below. Lost of mocking DynamoClient to check if the album that was
+ * put in will also come out. Will leave this class as is for now.
+ */
+
 class DynamoRepositoryTest {
 
     private DynamoRepository repository;
@@ -75,12 +80,10 @@ class DynamoRepositoryTest {
             }
         };
 
-        // Mock PageIterable returned by .scan()
         PageIterable<Album> mockPageIterable = mock(PageIterable.class);
         when(mockPageIterable.items()).thenReturn(mockSdkIterable);
 
         when(mockAlbumTable.query(any(QueryConditional.class))).thenReturn(mockPageIterable);
-
 
         List<Album> albumsResult = repository.getAlbums(GALLERY);
 

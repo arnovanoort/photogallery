@@ -6,17 +6,14 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.arnovanoort.photogallery.dto.*;
 import nl.arnovanoort.photogallery.model.Album;
-import nl.arnovanoort.photogallery.repository.DynamoRepository;
 import nl.arnovanoort.photogallery.service.AlbumService;
-import nl.arnovanoort.photogallery.service.S3Service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import static org.mockito.Mockito.*;
 
-import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,9 +28,7 @@ class AlbumHandlerTest {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Mock
-    private DynamoRepository mockDynamoRepository;
-    @Mock
-    private S3Service mockS3Service;
+    private AlbumService albumService;
     @Mock
     private Context context;
 
@@ -42,14 +37,13 @@ class AlbumHandlerTest {
 
     @BeforeEach
     void setUp() {
-        AlbumService albumService = new AlbumService(mockS3Service, mockDynamoRepository, clock);
         handler = new AlbumHandler(albumService);
         this.testAlbum = anAlbum();
     }
 
     @Test
     void handleRequest_getAllAlbums_success() throws  Exception{
-        when(mockDynamoRepository.getAlbums(AlbumHandler.DEFAULT_GALLERY)).thenReturn(alistOf2Albums());
+        when(albumService.getAlbums(testGallery)).thenReturn(alistOf2Albums());
         APIGatewayV2HTTPEvent request = createGetAlbumsRequest();
 
         // execute
@@ -58,7 +52,7 @@ class AlbumHandlerTest {
         // assert
         assertEquals(200, response.getStatusCode());
         GalleryResponse galleryResponse  = objectMapper.readValue(response.getBody(), GalleryResponse.class);
-        assertEquals(AlbumHandler.DEFAULT_GALLERY, galleryResponse.getName());
+        assertEquals(testGallery, galleryResponse.getName());
         assertIterableEquals(
                 galleryResponse
                         .getAlbums()
@@ -70,9 +64,8 @@ class AlbumHandlerTest {
 
     }
     @Test
-
     void handleRequest_getAllAlbums_success_for_emnpty_list() throws  Exception{
-        when(mockDynamoRepository.getAlbums(AlbumHandler.DEFAULT_GALLERY)).thenReturn(anEmptyListOfAlbums());
+        when(albumService.getAlbums(testGallery)).thenReturn(anEmptyListOfAlbums());
         APIGatewayV2HTTPEvent request = createGetAlbumsRequest();
 
         // execute
@@ -81,33 +74,14 @@ class AlbumHandlerTest {
         // assert
         assertEquals(200, response.getStatusCode());
         GalleryResponse galleryResponse  = objectMapper.readValue(response.getBody(), GalleryResponse.class);
-        assertEquals(AlbumHandler.DEFAULT_GALLERY, galleryResponse.getName());
+        assertEquals(testGallery, galleryResponse.getName());
         assertEquals(0, galleryResponse.getAlbums().size());
     }
 
     @Test
     void handleRequest_getAlbum_album_Found() throws Exception {
         // prepare
-        when(mockDynamoRepository.getAlbum(AlbumHandler.DEFAULT_GALLERY, testAlbumId)).thenReturn(Optional.ofNullable(testAlbum));
-        when(mockDynamoRepository.getPhotos(testAlbumId)).thenReturn(aListOf2Photos());
-        APIGatewayV2HTTPEvent request = createGetAlbumRequest();
-        request.setQueryStringParameters(Map.of("albumId", testAlbumId));
-
-        // execute
-        APIGatewayV2HTTPResponse response = handler.handleRequest(request, context);
-
-        // assert
-        assertEquals(200, response.getStatusCode());
-        AlbumResponse errorResponse = objectMapper.readValue(response.getBody(), AlbumResponse.class);
-        assertEquals(anAlbum(), errorResponse.getAlbum());
-        assertEquals(aListOf2Photos(), errorResponse.getPhotos());
-    }
-
-    @Test
-    void handleRequest_getAlbum_not_existing_albumId() throws Exception {
-        // prepare
-        when(mockDynamoRepository.getAlbum(AlbumHandler.DEFAULT_GALLERY, testAlbumId)).thenReturn(Optional.ofNullable(testAlbum));
-        when(mockDynamoRepository.getPhotos(testAlbumId)).thenReturn(aListOf2Photos());
+        when(albumService.getAlbum(testGallery, testAlbumId)).thenReturn(Optional.of(albumResponseWith2Photos()));
         APIGatewayV2HTTPEvent request = createGetAlbumRequest();
         request.setQueryStringParameters(Map.of("albumId", testAlbumId));
 
@@ -124,7 +98,7 @@ class AlbumHandlerTest {
     @Test
     void handleRequest_getAlbum_albumNotFound_returns404() throws Exception {
         // prepare
-        when(mockDynamoRepository.getAlbum(AlbumHandler.DEFAULT_GALLERY, testAlbumName)).thenReturn(Optional.empty());
+        when(albumService.getAlbum(testGallery, testAlbumName)).thenReturn(Optional.empty());
         APIGatewayV2HTTPEvent request = createGetAlbumRequest();
         request.setQueryStringParameters(Map.of("albumId", testAlbumName));
 
@@ -142,8 +116,13 @@ class AlbumHandlerTest {
     @Test
     void handleRequest_create_album() throws Exception {
         // prepare
+        CreateAlbumRequest createAlbumRequest = CreateAlbumRequest.builder()
+                .name(anAlbum().getName())
+                .albumId(testAlbumId)
+                .build();
         APIGatewayV2HTTPEvent request = createCreateAlbumRequest();
         request.setBody(objectMapper.writeValueAsString(new CreateAlbumRequest(testAlbumName, testAlbumId)));
+        when(albumService.createAlbum(testGallery, createAlbumRequest)).thenReturn(anAlbum());
 
         // execute
         APIGatewayV2HTTPResponse response = handler.handleRequest(request, context);
@@ -174,13 +153,12 @@ class AlbumHandlerTest {
 
     @Test
     void handleRequest_import_albums() throws Exception {
-        // stub: S3 geeft 2 albums terug
-        List<AlbumImport> imports = List.of(
-                new AlbumImport("Zomervakantie", List.of("foto1.jpg", "foto2.jpg")),
-                new AlbumImport("Kerst", List.of("foto3.jpg"))
-        );
-        when(mockS3Service.listAlbums(AlbumHandler.DEFAULT_GALLERY)).thenReturn(imports);
 
+        ImportResponse importResponse = ImportResponse.builder()
+                .albumNames(alistOf2Albums().stream().map(album -> album.getName()).toList())
+                .galleryName(testGallery)
+                .build();
+        when(albumService.importAlbums(testGallery)).thenReturn(importResponse);
         APIGatewayV2HTTPEvent request = createImportRequest();
 
         // execute
@@ -188,12 +166,10 @@ class AlbumHandlerTest {
 
         // assert: status en aantal
         assertEquals(201, response.getStatusCode());
-        ImportResponse importResponse = objectMapper.readValue(response.getBody(), ImportResponse.class);
-        assertEquals(AlbumHandler.DEFAULT_GALLERY, importResponse.getGalleryName());
-        assertEquals(2, importResponse.getNrImportedAlbums());
+        ImportResponse importResponse1 = objectMapper.readValue(response.getBody(), ImportResponse.class);
+        assertEquals(testGallery, importResponse1.getGalleryName());
+        assertEquals(Arrays.asList(new String[]{testAlbumName, testAnotherAlbumName}), importResponse1.getAlbumNames());
 
-        // assert: repository werd 2x aangeroepen
-        verify(mockDynamoRepository, times(2)).importAlbums(any(AlbumImport.class), eq(AlbumHandler.DEFAULT_GALLERY));
     }
     @Test
 

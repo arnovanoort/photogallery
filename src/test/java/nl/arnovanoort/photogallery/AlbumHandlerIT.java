@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
 @Testcontainers
-class AlbumHandlerIT extends AWSEnabledIntegrationTest {
+class AlbumHandlerIT extends AbstractAWSEnabledIntegrationTest {
 
     /**
      * This test will fire up a local DynamoDB and S3. In preparation phase some photos are uploaded to the bucket.

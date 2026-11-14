@@ -40,6 +40,7 @@ public class AlbumHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
      */
     @Override
     public APIGatewayV2HTTPResponse handleRequest(APIGatewayV2HTTPEvent request, Context context) {
+        // TODO return error response when no gallery present
         String gallery = getGalleryId(request).orElse(DEFAULT_GALLERY);
         String routeKey = request.getRouteKey();
         String httpMethod = (request.getRequestContext() != null && request.getRequestContext().getHttp() != null)

@@ -1,5 +1,6 @@
 package nl.arnovanoort.photogallery;
 
+import nl.arnovanoort.photogallery.dto.AlbumResponse;
 import nl.arnovanoort.photogallery.model.Album;
 import nl.arnovanoort.photogallery.model.Photo;
 
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class ObjectMother {
+    public final static String testGallery = "demo";
     public static String testAlbumName = "Test album name";
     public static String testAlbumId   = UUID.randomUUID().toString();
     public static String testAnotherAlbumName = "another album name";
@@ -25,12 +27,12 @@ public class ObjectMother {
 
     public static Album anAlbum() {
         if(anAlbum == null) {
-            return Album.builder()
-                    .gallery(AlbumHandler.DEFAULT_GALLERY)
+            anAlbum = Album.builder()
+                    .gallery(testGallery)
                     .albumId(testAlbumId)
                     .name(testAlbumName)
                     .date(LocalDateTime.now(clock))
-                    .pk("PHOTOGALLERY#" + AlbumHandler.DEFAULT_GALLERY)
+                    .pk("PHOTOGALLERY#" + testGallery)
                     .sk("ALBUM#" + testAlbumId)
                     .build();
         }
@@ -39,11 +41,11 @@ public class ObjectMother {
 
     public static Album anOtherAlbum() {
         if(anOtherAlbum == null){
-            return Album.builder()
-                    .gallery(AlbumHandler.DEFAULT_GALLERY)
+            anOtherAlbum = Album.builder()
+                    .gallery(testGallery)
                     .albumId(testAnotherAlbumId)
                     .name(testAnotherAlbumName)
-                    .pk("PHOTOGALLERY#" + AlbumHandler.DEFAULT_GALLERY)
+                    .pk("PHOTOGALLERY#" + testGallery)
                     .sk("ALBUM#" + testAnotherAlbumId)
                     .build();
 
@@ -90,7 +92,16 @@ public class ObjectMother {
         return anOtherPhoto;
     }
 
-    public static List<Photo> aListOf2Photos() {
-        return List.of(aPhoto(), anOtherPhoto());
+    public static List<Photo> aListOf2Photos() { return List.of(aPhoto(), anOtherPhoto()); }
+    public static List<Photo> anEmptyListOfPhotos() {
+        return List.of();
+    }
+
+    public static AlbumResponse albumResponseWith2Photos(){
+      return AlbumResponse
+              .builder()
+              .album(anAlbum())
+              .photos(aListOf2Photos())
+              .build();
     }
 }

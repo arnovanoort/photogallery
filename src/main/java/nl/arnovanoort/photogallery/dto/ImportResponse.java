@@ -5,11 +5,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ImportResponse {
     private String galleryName;
-    private int nrImportedAlbums;
+    private List<String> albumNames;
 }
