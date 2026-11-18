@@ -43,7 +43,7 @@ class AlbumHandlerTest {
 
     @Test
     void handleRequest_getAllAlbums_success() throws  Exception{
-        when(albumService.getAlbums(testGallery)).thenReturn(alistOf2Albums());
+        when(albumService.getAlbums(testGallery)).thenReturn(aListOf2Albums());
         APIGatewayV2HTTPEvent request = createGetAlbumsRequest();
 
         // execute
@@ -60,11 +60,11 @@ class AlbumHandlerTest {
                         .map(galleryAlbumResponse -> {
                             return galleryAlbumResponse.toAlbum(galleryResponse.getName());
                         }).toList(),
-                alistOf2Albums());
+                aListOf2Albums());
 
     }
     @Test
-    void handleRequest_getAllAlbums_success_for_emnpty_list() throws  Exception{
+    void handleRequest_getAllAlbums_success_for_empty_list() throws  Exception{
         when(albumService.getAlbums(testGallery)).thenReturn(anEmptyListOfAlbums());
         APIGatewayV2HTTPEvent request = createGetAlbumsRequest();
 
@@ -155,7 +155,7 @@ class AlbumHandlerTest {
     void handleRequest_import_albums() throws Exception {
 
         ImportResponse importResponse = ImportResponse.builder()
-                .albumNames(alistOf2Albums().stream().map(album -> album.getName()).toList())
+                .albumNames(aListOf2Albums().stream().map(album -> album.getName()).toList())
                 .galleryName(testGallery)
                 .build();
         when(albumService.importAlbums(testGallery)).thenReturn(importResponse);

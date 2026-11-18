@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import nl.arnovanoort.photogallery.model.Photo;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -14,8 +15,8 @@ public class PhotoResponse {
     private String albumId;
     private String photoId;
     private String title;
-    private String date;
-    private String preSignedUrl;
+    private LocalDateTime date;
+    private String publicLink;
 
     public static List<PhotoResponse> fromPhotos(List<Photo> photos){
         return photos.stream().map(photo -> {
@@ -23,9 +24,8 @@ public class PhotoResponse {
                     .albumId(photo.getAlbumId())
                     .photoId(photo.getPhotoId())
                     .date(photo.getDate())
-                    .preSignedUrl(photo.getPreSignedUrl())
+                    .publicLink(photo.getPublicLink())
                     .build();
         }).toList();
-
     }
 }

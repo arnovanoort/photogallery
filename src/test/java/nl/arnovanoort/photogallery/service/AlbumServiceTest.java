@@ -1,9 +1,8 @@
 package nl.arnovanoort.photogallery.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.arnovanoort.photogallery.dto.*;
 import nl.arnovanoort.photogallery.model.Album;
-import nl.arnovanoort.photogallery.repository.DynamoRepository;
+import nl.arnovanoort.photogallery.repository.AlbumRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,8 +14,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static nl.arnovanoort.photogallery.ObjectMother.*;
-import static nl.arnovanoort.photogallery.ObjectMother.aListOf2Photos;
-import static nl.arnovanoort.photogallery.ObjectMother.alistOf2Albums;
+import static nl.arnovanoort.photogallery.ObjectMother.aListOf2PhotosWithoutLink;
+import static nl.arnovanoort.photogallery.ObjectMother.aListOf2Albums;
 import static nl.arnovanoort.photogallery.ObjectMother.anAlbum;
 import static nl.arnovanoort.photogallery.ObjectMother.anEmptyListOfAlbums;
 import static nl.arnovanoort.photogallery.ObjectMother.testAlbumId;
@@ -31,33 +30,33 @@ public class AlbumServiceTest {
     AlbumService albumService;
 
     @Mock
-    private DynamoRepository mockDynamoRepository;
+    private AlbumRepository mockAlbumRepository;
     @Mock
-    private S3Service mockS3Service;
+    private StorageService mockStorageService;
 
 
     private Album testAlbum;
 
     @BeforeEach
     void setUp() {
-        albumService = new AlbumService(mockS3Service, mockDynamoRepository, clock);
+        albumService = new AlbumService(mockStorageService, mockAlbumRepository, clock);
         this.testAlbum = anAlbum();
     }
 
     @Test
     void albumService_getAllAlbums_success() throws  Exception{
-        when(mockDynamoRepository.getAlbums(testGallery)).thenReturn(alistOf2Albums());
+        when(mockAlbumRepository.getAlbums(testGallery)).thenReturn(aListOf2Albums());
 
         // execute
         List<Album> result = albumService.getAlbums(testGallery);
 
         // assert
-        assertEquals(result, alistOf2Albums());
+        assertEquals(result, aListOf2Albums());
     }
 
     @Test
     void albumService_getAllAlbums_success_for_emnpty_list() throws  Exception{
-        when(mockDynamoRepository.getAlbums(testGallery)).thenReturn(anEmptyListOfAlbums());
+        when(mockAlbumRepository.getAlbums(testGallery)).thenReturn(anEmptyListOfAlbums());
 
         // execute
         List<Album> result = albumService.getAlbums(testGallery);
@@ -69,8 +68,10 @@ public class AlbumServiceTest {
     @Test
     void albumService_getAlbum_album_Found() throws Exception {
         // prepare
-        when(mockDynamoRepository.getAlbum(testGallery, testAlbumId)).thenReturn(Optional.ofNullable(testAlbum));
-        when(mockDynamoRepository.getPhotos(testAlbumId)).thenReturn(aListOf2Photos());
+        when(mockAlbumRepository.getAlbum(testGallery, testAlbumId)).thenReturn(Optional.ofNullable(testAlbum));
+        when(mockAlbumRepository.getPhotos(testAlbumId)).thenReturn(aListOf2PhotosWithoutLink());
+        when(mockStorageService.generatePublicURL(testGallery, anAlbum().getName(), aPhotoWithoutLink().getFilename())).thenReturn(publicLinkForAPhoto);
+        when(mockStorageService.generatePublicURL(testGallery, anAlbum().getName(), anOtherPhotoWithoutLink().getFilename())).thenReturn(publicLinkForAnotherPhoto);
 
         // execute
         Optional<AlbumResponse> result = albumService.getAlbum(testGallery, testAlbumId);
@@ -83,7 +84,7 @@ public class AlbumServiceTest {
     @Test
     void albumService_getAlbum_not_existing_albumId() throws Exception {
         // prepare
-        when(mockDynamoRepository.getAlbum(testGallery, testAlbumId)).thenReturn(Optional.empty());
+        when(mockAlbumRepository.getAlbum(testGallery, testAlbumId)).thenReturn(Optional.empty());
 
         // execute
         Optional<AlbumResponse> result = albumService.getAlbum(testGallery, testAlbumId);
@@ -95,15 +96,15 @@ public class AlbumServiceTest {
     @Test
     void albumService_getAlbum_album_Found_but_no_photos() throws Exception {
         // prepare
-        when(mockDynamoRepository.getAlbum(testGallery, testAlbumId)).thenReturn(Optional.ofNullable(testAlbum));
-        when(mockDynamoRepository.getPhotos(testAlbumId)).thenReturn(anEmptyListOfPhotos());
+        when(mockAlbumRepository.getAlbum(testGallery, testAlbumId)).thenReturn(Optional.ofNullable(testAlbum));
+        when(mockAlbumRepository.getPhotos(testAlbumId)).thenReturn(anEmptyListOfPhotosWithoutLink());
 
         // execute
         Optional<AlbumResponse> result = albumService.getAlbum(testGallery, testAlbumId);
 
         // assert
         assertEquals(anAlbum(), result.get().getAlbum());
-        assertEquals(anEmptyListOfPhotos(), result.get().getPhotos());
+        assertEquals(anEmptyListOfPhotosWithoutLink(), result.get().getPhotos());
     }
 
     @Test
@@ -139,23 +140,22 @@ public class AlbumServiceTest {
 
     @Test
     void albumService_import_albums() throws Exception {
-
-        // stub: S3 geeft 2 albums terug
+        // mock listAlbums call
         List<AlbumImport> imports = List.of(
                 new AlbumImport(testAlbumName, List.of("foto1.jpg", "foto2.jpg")),
                 new AlbumImport(testAnotherAlbumName, List.of("foto3.jpg"))
         );
-        when(mockS3Service.listAlbums(testGallery)).thenReturn(imports);
+        when(mockStorageService.listAlbums(testGallery)).thenReturn(imports);
 
         // execute
         ImportResponse result = albumService.importAlbums(testGallery);
 
-        // assert: status en aantal
+        // assert: status and album names
         assertEquals(testGallery, result.getGalleryName());
         assertEquals(Arrays.asList(new String[]{testAlbumName, testAnotherAlbumName}), result.getAlbumNames());
 
-        // assert: repository werd 2x aangeroepen
-        verify(mockDynamoRepository, times(2)).importAlbums(any(AlbumImport.class), eq(testGallery));
+        // assert: 2 calls to importAlbums
+        verify(mockAlbumRepository, times(2)).createAlbumAndPhotos(any(Album.class), anyList());
     }
 
 

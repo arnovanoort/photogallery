@@ -117,8 +117,8 @@
 
     <text x="16" y="148" font-size="12" font-weight="600" fill="#334155">Business Logic</text>
     <text x="16" y="166" font-size="11" fill="#64748b">• Route &amp; Method Dispatcher</text>
-    <text x="16" y="182" font-size="11" fill="#64748b">• DynamoRepository interaction</text>
-    <text x="16" y="198" font-size="11" fill="#64748b">• S3Service Presign generator</text>
+    <text x="16" y="182" font-size="11" fill="#64748b">• AlbumRepository interaction</text>
+    <text x="16" y="198" font-size="11" fill="#64748b">• StorageService Presign generator</text>
     <text x="16" y="214" font-size="11" fill="#64748b">• Jackson JSON serialization</text>
     
     <rect x="16" y="224" width="178" height="18" rx="4" fill="#fffbeb" stroke="#fde68a" stroke-width="1" />

@@ -1,12 +1,12 @@
 # Photogallery - Java AWS Lambda Photo App
 
 An application that will display your pictures on the web. It will enable the user to define multiple galleries. A gallery can be used to store pictures for a certain topic or for dedicated people. 
-Each gallery has its own url and authentication. within a gallery you can create muliple albums which contain the pictures.
+Each gallery has its own url and authentication. within a gallery you can create multiple albums which contain the pictures.
 
 An example application can be found here:
 - https://www.arnovanoort.nl/photogallery/demo/
 
-## techical high level overview
+## technical high level overview
 The application is implemented in the AWS cloud using
 - S3 to store the pictures
 - DynamoDB for administration of the photos/albums/galleries
@@ -26,7 +26,7 @@ The application is implemented in the AWS cloud using
 3. **Compute Layer (AWS Lambda - `AlbumHandler.java`)**:
    - Runs on the Java 21 runtime.
    - Handles `APIGatewayV2HTTPEvent` requests in [`AlbumHandler`](src/main/java/nl/arnovanoort/photogallery/AlbumHandler.java).
-   - Interacts with DynamoDB via `DynamoRepository` and generates secure pre-signed download URLs via `S3Service`.
+   - Interacts with DynamoDB via `DynamoAlbumRepository` and generates secure pre-signed download URLs via `S3StorageService`.
 4. **Persistence & Storage Layer**:
    - **Amazon DynamoDB (`PhotogalleryData`)**: Single Table Design for metadata (albums, photos, comments).
    - **Amazon S3 (`photogallery-data`)**: Private object storage for original image files.
@@ -85,7 +85,7 @@ Infrastructure is managed with Terraform.
 | Entity | Partition Key (PK) | Sort Key (SK) | Key Attributes                                        |
 | :--- | :--- | :--- |:------------------------------------------------------|
 | **Album** | `ALBUM#<ID>` | `METADATA` | `name` (name), `location` (location), `date` (date) |
-| **Photo** | `ALBUM#<ID>` | `PHOTO#<ID>` | `title` (title), `s3FileName`, `date` (date)          |
+| **Photo** | `ALBUM#<ID>` | `PHOTO#<ID>` | `title` (title), `filename`, `date` (date)          |
 | **Comment** | `PHOTO#<ID>` | `COMMENT#<ID>` | `name` (author), `text` (text), `date` (date)         |
 
 

@@ -6,34 +6,36 @@ import nl.arnovanoort.photogallery.dto.AlbumResponse;
 import nl.arnovanoort.photogallery.dto.ImportResponse;
 
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 import lombok.extern.slf4j.Slf4j;
 import nl.arnovanoort.photogallery.model.Album;
+import nl.arnovanoort.photogallery.model.PhotoWithoutLink;
 import nl.arnovanoort.photogallery.model.Photo;
-import nl.arnovanoort.photogallery.repository.DynamoRepository;
+import nl.arnovanoort.photogallery.repository.AlbumRepository;
+import nl.arnovanoort.photogallery.repository.dynamo.DynamoAlbumRepository;
+import nl.arnovanoort.photogallery.service.s3.S3StorageService;
 
 @Slf4j
 public class AlbumService {
 
-    private S3Service s3Service;
-    private DynamoRepository dynamoRepository;
+    private StorageService storageService;
+    private AlbumRepository albumRepository;
     private Clock clock;
 
     public AlbumService(){
-        this.s3Service = new S3Service();
-        this.dynamoRepository = new DynamoRepository();
+        this.storageService = new S3StorageService();
+        this.albumRepository = new DynamoAlbumRepository();
         this.clock = Clock.systemDefaultZone();
     }
 
     // constructor for testing
-    public AlbumService(S3Service s3Service, DynamoRepository dynamoRepository, Clock clock){
-        this.s3Service = s3Service;
-        this.dynamoRepository = dynamoRepository;
+    public AlbumService(StorageService storageService, AlbumRepository albumRepository, Clock clock){
+        this.storageService = storageService;
+        this.albumRepository = albumRepository;
         this.clock = clock;
-
     }
 
     /**
@@ -44,10 +46,12 @@ public class AlbumService {
      * @return ImportResponse containing the result of the import
      */
     public ImportResponse importAlbums(String gallery) {
-        List<AlbumImport> albums = s3Service.listAlbums(gallery);
+        List<AlbumImport> albums = storageService.listAlbums(gallery);
         albums.forEach(importAlbum -> {
             log.info("Importing album: {} for gallery {}", importAlbum, gallery);
-            dynamoRepository.importAlbums(importAlbum, gallery);
+            Album album = importAlbum.toAlbum(gallery);
+            List<PhotoWithoutLink> photos = importAlbum.toPhotos(album.getAlbumId());
+            albumRepository.createAlbumAndPhotos(album, photos);
         });
         return  ImportResponse.builder()
                 .galleryName(gallery)
@@ -63,21 +67,24 @@ public class AlbumService {
      */
     public List<Album> getAlbums(String gallery){
         log.info("Fetching all albums for user: {}", gallery);
-        List<Album> allAlbums = dynamoRepository.getAlbums(gallery);
+        List<Album> allAlbums = albumRepository.getAlbums(gallery);
         log.info("Retrieved {} albums for user: {}", allAlbums.size(), gallery);
         return allAlbums;
     }
 
     public Optional<AlbumResponse> getAlbum(String gallery, String albumId) {
-        return dynamoRepository.getAlbum(gallery, albumId)
+        return albumRepository.getAlbum(gallery, albumId)
                 .map(album -> {
                     // extract album and process photos.
-                    List<Photo> photos = dynamoRepository.getPhotos(album.getAlbumId());
-                    log.info("Found {} photos for album: {}", photos.size(), album.getAlbumId());
+                    List<PhotoWithoutLink> photosWithoutLink = albumRepository.getPhotos(album.getAlbumId());
+                    log.info("Found {} photos for album: {}", photosWithoutLink.size(), album.getAlbumId());
 
-                    photos.forEach(photo ->
-                            photo.setPreSignedUrl(s3Service.generatePresignedUrl(gallery + "/" + album.getName() + "/" + photo.getS3FileName()))
-                    );
+                    List<Photo> photos = photosWithoutLink.stream().map(photo -> {
+                            String publicLink = storageService.generatePublicURL(gallery, album.getName(), photo.getFilename());
+    //                        String publicLink = storageService.generatePublicURL(gallery + "/" + album.getName() + "/" + photo.getFilename());
+                        return Photo.fromPhoto(photo, publicLink);
+                    }
+                    ).toList();
 
                     return AlbumResponse.builder()
                             .album(album)
@@ -93,15 +100,14 @@ public class AlbumService {
         log.info("Creating album: name='{}', albumId='{}' for user: {}", createAlbumRequest.getName(), albumId, gallery);
 
         // TODO: Album should not know about pk/sk
-        Album album = Album.builder()
+        Album album = Album
+                .builder()
                 .gallery(gallery)
                 .albumId(albumId)
                 .name(createAlbumRequest.getName())
-                .date(LocalDateTime.now(clock))
-                .pk("PHOTOGALLERY#" + gallery)
-                .sk("ALBUM#" + albumId)
+                .date(LocalDate.now(clock))
                 .build();
-        dynamoRepository.createAlbum(album);
+        albumRepository.createAlbum(album);
         log.info("Successfully created album: {}", albumId);
         return album;
     }

@@ -1,7 +1,8 @@
-package nl.arnovanoort.photogallery.service;
+package nl.arnovanoort.photogallery.service.s3;
 
 import lombok.extern.slf4j.Slf4j;
 import nl.arnovanoort.photogallery.dto.AlbumImport;
+import nl.arnovanoort.photogallery.service.StorageService;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -40,7 +41,8 @@ public class S3StorageService implements StorageService {
     }
 
     @Override
-    public String generatePresignedUrl(String s3FileName) {
+    public String generatePublicURL(String gallery, String albumName, String fileName) {
+        String s3FileName = String.join("/", gallery, albumName, fileName);
         if (s3FileName == null || s3FileName.isEmpty()) return null;
 
         try {
@@ -121,8 +123,8 @@ public class S3StorageService implements StorageService {
     }
 
     @Override
-    public void uploadPhoto(String testGalleryCitytrips, String album, String filename, byte[] bytes) {
-        String key = testGalleryCitytrips + "/" + album + "/" + filename;
+    public void uploadPhoto(String gallery, String album, String filename, byte[] bytes) {
+        String key = gallery + "/" + album + "/" + filename;
         log.info("uploading file " + key);
 
         s3Client.putObject(

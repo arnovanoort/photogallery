@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class AlbumHandlerIT extends AbstractAWSEnabledIntegrationTest {
 
     /**
-     * This test will fire up a local DynamoDB and S3. In preparation phase some photos are uploaded to the bucket.
+     * This test will fire up a local database and storage. In preparation phase some photos are uploaded to the bucket.
      * - create a new album
      * - fetch the created album
      * - assert the results
@@ -47,14 +47,12 @@ class AlbumHandlerIT extends AbstractAWSEnabledIntegrationTest {
     }
 
     /**
-     * This test will fire up a local DynamoDB and S3. In preparation phase some photos are uploaded to the bucket.
-     * - import existing albums from S3
-     * - fetch created albums
-     * - assert the results
+     * This test will fire up a local database and storage.
+     * It will import albums and the test will verify storage and database..
      */
     @Test
     void testImportAlbums() {
-        // import the existing photos on S3 for gallery citytrips into dynamoDb
+        // import the existing photos from storage for gallery citytrips into the database
         var importAlbumsResponse = albumHandler.handleRequest(
                 createRequest("/citytrips/london/import", testGalleryCitytrips, "POST", null),
                 null
@@ -88,17 +86,17 @@ class AlbumHandlerIT extends AbstractAWSEnabledIntegrationTest {
     /*
     Helper method to validate an AlbumResponse
     */
-    private void assertAlbumResponse(AlbumResponse albumResponse, String expectedGalleryName, String expectedAlbumName, String[] expetedPhotoS3Filenames, String[] expectedPresignedUrls ) {
+    private void assertAlbumResponse(AlbumResponse albumResponse, String expectedGalleryName, String expectedAlbumName, String[] expectedPhotoFilenames, String[] expectedPresignedUrls ) {
         var albums = albumResponse.getAlbum();
         var photos = albumResponse.getPhotos();
         assertEquals(expectedGalleryName, albums.getGallery());
         assertEquals(expectedAlbumName, albums.getName());
         assertIterableEquals(
-                photos.stream().map(Photo::getS3FileName).sorted().toList(),
-                Arrays.stream(expetedPhotoS3Filenames).sorted().toList()
+                photos.stream().map(Photo::getFilename).sorted().toList(),
+                Arrays.stream(expectedPhotoFilenames).sorted().toList()
         );
         assertIterableEquals(
-                photos.stream().map(Photo::getPreSignedUrl).map(presignedUrl -> presignedUrl.split("\\?")[0]).sorted().toList(),
+                photos.stream().map(Photo::getPublicLink).map(presignedUrl -> presignedUrl.split("\\?")[0]).sorted().toList(),
                 Arrays.stream(expectedPresignedUrls).sorted().toList()
         );
     }

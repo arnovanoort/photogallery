@@ -3,7 +3,9 @@ package nl.arnovanoort.photogallery.repository;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import nl.arnovanoort.photogallery.model.Album;
-import nl.arnovanoort.photogallery.model.Photo;
+import nl.arnovanoort.photogallery.repository.dynamo.DynamoAlbum;
+import nl.arnovanoort.photogallery.repository.dynamo.DynamoAlbumRepository;
+import nl.arnovanoort.photogallery.repository.dynamo.DynamoPhoto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,11 +17,9 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.PageIterable;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Iterator; // Import Iterator
+import java.util.Iterator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,37 +27,37 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import static nl.arnovanoort.photogallery.ObjectMother.*;
+
 @ExtendWith(MockitoExtension.class)
 /*
- * There is not much benefit in the test below. Lost of mocking DynamoClient to check if the album that was
+ * There is not much benefit in the test below. Lots of mocking DynamoClient to check if the album that was
  * put in will also come out. Will leave this class as is for now.
  */
 
-class DynamoRepositoryTest {
+class DynamoAlbumRepositoryTest {
 
-    private DynamoRepository repository;
+    private DynamoAlbumRepository repository;
     private ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private static final String GALLERY = "demo";
     @Mock
     private DynamoDbEnhancedClient mockEnhancedClient;
     @Mock
-    private S3Presigner mockS3Presigner;
+    private DynamoDbTable<DynamoAlbum> mockAlbumTable;
     @Mock
-    private DynamoDbTable<Album> mockAlbumTable;
-    @Mock
-    private DynamoDbTable<Photo> mockPhotoTable;
+    private DynamoDbTable<DynamoPhoto> mockPhotoTable;
     @Mock
     private Context context;
 
     @BeforeEach
     void setUp() {
-        repository = new DynamoRepository(mockEnhancedClient);
+        repository = new DynamoAlbumRepository(mockEnhancedClient);
         when(mockEnhancedClient.table(anyString(), any(TableSchema.class)))
                 .thenAnswer(invocation -> {
                     TableSchema<?> schema = invocation.getArgument(1);
-                    if (schema.itemType().rawClass().equals(Album.class)) {
+                    if (schema.itemType().rawClass().equals(DynamoAlbum.class)) {
                         return mockAlbumTable;
-                    } else if (schema.itemType().equals(Photo.class)) {
+                    } else if (schema.itemType().equals(DynamoPhoto.class)) {
                         return mockPhotoTable;
                     }
                     return null;
@@ -68,25 +68,29 @@ class DynamoRepositoryTest {
     @Test
     @SuppressWarnings("unchecked")
     void handleRequest_GetAllAlbums_ReturnsAlbumsList() throws Exception {
-        Album album1 = Album.builder().gallery(GALLERY + "#Album").albumId("1").name("Vakantie 2024").date(LocalDateTime.now()).build();
-        Album album2 = Album.builder().gallery(GALLERY + "#Album").albumId("2").name("Familie Feest").date(LocalDateTime.now()).build();
-        List<Album> albums = List.of(album1, album2);
 
-        // Correct way to create SdkIterable from List
-        SdkIterable<Album> mockSdkIterable = new SdkIterable<Album>() {
+        /*
+            DynamoDB returns its result in pages to prevent too many results
+            in our case this is not needed so we merge those pages(using.items())
+            The below mocks that response
+         */
+        SdkIterable<DynamoAlbum> mockSdkIterable = new SdkIterable<DynamoAlbum>() {
             @Override
-            public Iterator<Album> iterator() {
-                return albums.iterator();
+            public Iterator<DynamoAlbum> iterator() {
+                return dynamoAlbums.iterator();
             }
         };
 
-        PageIterable<Album> mockPageIterable = mock(PageIterable.class);
+        // mocks returning iterable over the pages(aws returns pages to prevent too many results)
+        PageIterable<DynamoAlbum> mockPageIterable = mock(PageIterable.class);
+
+        // we will not get such big results to will merge pages into one result
         when(mockPageIterable.items()).thenReturn(mockSdkIterable);
 
         when(mockAlbumTable.query(any(QueryConditional.class))).thenReturn(mockPageIterable);
 
         List<Album> albumsResult = repository.getAlbums(GALLERY);
 
-        assertEquals(albums, albumsResult);
+        assertEquals(aListOf2Albums(), albumsResult);
     }
 }

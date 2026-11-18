@@ -1,9 +1,9 @@
-package nl.arnovanoort.photogallery.repository;
+package nl.arnovanoort.photogallery.repository.dynamo;
 
 import lombok.extern.slf4j.Slf4j;
-import nl.arnovanoort.photogallery.dto.AlbumImport;
 import nl.arnovanoort.photogallery.model.Album;
-import nl.arnovanoort.photogallery.model.Photo;
+import nl.arnovanoort.photogallery.model.PhotoWithoutLink;
+import nl.arnovanoort.photogallery.repository.AlbumRepository;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
@@ -46,51 +46,70 @@ public class DynamoAlbumRepository implements AlbumRepository {
     @Override
     public List<Album> getAlbums(String gallery) {
         log.info("Querying DynamoDB table '{}' for gallery: {}", TABLE_NAME, gallery);
-        DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
+        DynamoDbTable<DynamoAlbum> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(DynamoAlbum.class));
 
-        return albumTable.query(QueryConditional.keyEqualTo(
-                Key.builder().partitionValue("PHOTOGALLERY#" + gallery).build()
-        )).items().stream().collect(Collectors.toList());
+        return albumTable
+                .query(
+                        QueryConditional.keyEqualTo(
+                                Key.builder().partitionValue("PHOTOGALLERY#" + gallery).build()
+                        )
+                )
+
+                .items()
+                .stream()
+                .map(DynamoAlbum::toAlbum)
+                .collect(Collectors.toList());
     }
 
     @Override
     public Optional<Album> getAlbum(String gallery, String albumId) {
         log.info("Querying DynamoDB table '{}' for albumId: {} under gallery: {}", TABLE_NAME, albumId, gallery);
-        DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
+        DynamoDbTable<DynamoAlbum> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(DynamoAlbum.class));
         return Optional.ofNullable(
-            albumTable.getItem(Key.builder().partitionValue("PHOTOGALLERY#" + gallery).sortValue("ALBUM#" + albumId).build())
-        );
+            albumTable
+                    .getItem(
+                            Key.builder()
+                                    .partitionValue("PHOTOGALLERY#" + gallery)
+                                    .sortValue("ALBUM#" + albumId)
+                                    .build()
+                    )
+
+        ).map(DynamoAlbum::toAlbum);
     }
 
     @Override
-    public List<Photo> getPhotos(String albumId) {
+    public List<PhotoWithoutLink> getPhotos(String albumId) {
         log.info("Querying DynamoDB table '{}' for photos under album: {}", TABLE_NAME, albumId);
-        DynamoDbTable<Photo> photoTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Photo.class));
-        return photoTable.query(QueryConditional.sortBeginsWith(
-                        Key.builder().partitionValue("ALBUM#" + albumId).sortValue("PHOTO#").build()))
-                .items().stream().collect(Collectors.toList());
+        DynamoDbTable<DynamoPhoto> photoTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(DynamoPhoto.class));
+        return photoTable.query(
+                QueryConditional.sortBeginsWith(
+                        Key.builder()
+                                .partitionValue("ALBUM#" + albumId)
+                                .sortValue("PHOTO#").build()
+                ))
+                .items()
+                .stream()
+                .map(DynamoPhoto::toPhoto)
+                .collect(Collectors.toList());
     }
 
     @Override
     public void createAlbum(Album album) {
         log.info("Saving album to DynamoDB table '{}': {}", TABLE_NAME, album.getAlbumId());
-        DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
-        albumTable.putItem(album);
+        DynamoDbTable<DynamoAlbum> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(DynamoAlbum.class));
+        albumTable.putItem(DynamoAlbum.fromAlbum(album));
     }
 
-    private void createPhoto(Photo photo) {
+    private void createPhoto(PhotoWithoutLink photo) {
         log.info("Saving photo '{}' to DynamoDB table {}", photo.getFilename(), TABLE_NAME);
-        DynamoDbTable<Photo> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Photo.class));
-        albumTable.putItem(photo);
+        DynamoDbTable<DynamoPhoto> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(DynamoPhoto.class));
+        albumTable.putItem(DynamoPhoto.fromPhoto(photo));
     }
 
-    // TODO: too much logic in here: refactor
     @Override
-    public void importAlbums(AlbumImport albumImport, String gallery) {
-        Album album = albumImport.toAlbum(gallery);
+    public void createAlbumAndPhotos(Album album, List<PhotoWithoutLink> photos) {
         createAlbum(album);
 
-        List<Photo> photos = albumImport.toPhotos(album.getAlbumId());
         photos.forEach(photo -> {
             log.info("writing photo {} to dynamo", photo);
             createPhoto(photo);

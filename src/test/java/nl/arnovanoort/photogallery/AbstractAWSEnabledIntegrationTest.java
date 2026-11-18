@@ -5,9 +5,11 @@ import nl.arnovanoort.photogallery.dto.GalleryResponse;
 import nl.arnovanoort.photogallery.dto.ImportResponse;
 import nl.arnovanoort.photogallery.model.Album;
 import nl.arnovanoort.photogallery.dto.AlbumResponse;
-import nl.arnovanoort.photogallery.repository.DynamoRepository;
+import nl.arnovanoort.photogallery.repository.AlbumRepository;
+import nl.arnovanoort.photogallery.repository.dynamo.DynamoAlbumRepository;
 import nl.arnovanoort.photogallery.service.AlbumService;
-import nl.arnovanoort.photogallery.service.S3Service;
+import nl.arnovanoort.photogallery.service.s3.S3StorageService;
+import nl.arnovanoort.photogallery.service.StorageService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.localstack.LocalStackContainer;
@@ -26,10 +28,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.Arrays;
 import java.util.List;
 
@@ -47,8 +46,8 @@ abstract class AbstractAWSEnabledIntegrationTest {
 
     protected static DynamoDbClient dynamoDbClient;
     protected static DynamoDbEnhancedClient enhancedClient;
-    protected static DynamoRepository dynamoRepository;
-    protected static S3Service s3Service;
+    protected static AlbumRepository albumRepository;
+    protected static StorageService storageService;
     protected static AlbumHandler albumHandler;
     protected static final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     protected static Clock albumCreationDateTimeClock;
@@ -83,7 +82,7 @@ abstract class AbstractAWSEnabledIntegrationTest {
                 .dynamoDbClient(dynamoDbClient)
                 .build();
 
-        dynamoRepository = new DynamoRepository(enhancedClient);
+        albumRepository = new DynamoAlbumRepository(enhancedClient);
 
         // prepare  s3 service
         S3Client s3Client = S3Client.builder()
@@ -94,12 +93,12 @@ abstract class AbstractAWSEnabledIntegrationTest {
                 .region(Region.of(localstack.getRegion()))
                 .build();
         s3Client.createBucket(b -> b.bucket(testBucketName));
-        s3Service = new S3Service(testBucketName, s3Client);
+        storageService = new S3StorageService(testBucketName, s3Client);
 
         // clock used to inject into an (to be created) album
         albumCreationDateTimeClock = Clock.fixed(Instant.parse("2026-08-28T13:30:00Z"), ZoneId.of("UTC"));
 
-        AlbumService albumService = new AlbumService(s3Service, dynamoRepository, albumCreationDateTimeClock);
+        AlbumService albumService = new AlbumService(storageService, albumRepository, albumCreationDateTimeClock);
         // create the album handler with mocked repo/s3 and the albumCreationDateTime
         albumHandler = new AlbumHandler(albumService);
 
@@ -119,12 +118,12 @@ abstract class AbstractAWSEnabledIntegrationTest {
     }
 
     private static void createBucketFoldersAndPhotos() {
-        s3Service.uploadPhoto(testGalleryCitytrips, testAlbumLondonName, "londoneye.png"  , readFile("images/citytrips_gallery/london/londoneye.png"));
-        s3Service.uploadPhoto(testGalleryCitytrips, testAlbumLondonName, "towerbridge.png", readFile("images/citytrips_gallery/london/towerbridge.png"));
-        s3Service.uploadPhoto(testGalleryCitytrips, testAlbumParisName,  "louvre.png"     , readFile("images/citytrips_gallery/paris/louvre.png"));
-        s3Service.uploadPhoto(testGalleryCitytrips, testAlbumParisName,  "paris.png"      , readFile("images/citytrips_gallery/paris/paris.png"));
-        s3Service.uploadPhoto(testGallerySports, testAlbumBaseball,  "batting.png"      , readFile("images/citytrips_gallery/paris/paris.png"));
-        s3Service.uploadPhoto(testGallerySports, testAlbumBaseball,  "pitching.png"      , readFile("images/citytrips_gallery/paris/paris.png"));
+        storageService.uploadPhoto(testGalleryCitytrips, testAlbumLondonName, "londoneye.png"  , readFile("images/citytrips_gallery/london/londoneye.png"));
+        storageService.uploadPhoto(testGalleryCitytrips, testAlbumLondonName, "towerbridge.png", readFile("images/citytrips_gallery/london/towerbridge.png"));
+        storageService.uploadPhoto(testGalleryCitytrips, testAlbumParisName,  "louvre.png"     , readFile("images/citytrips_gallery/paris/louvre.png"));
+        storageService.uploadPhoto(testGalleryCitytrips, testAlbumParisName,  "paris.png"      , readFile("images/citytrips_gallery/paris/paris.png"));
+        storageService.uploadPhoto(testGallerySports, testAlbumBaseball,  "batting.png"      , readFile("images/citytrips_gallery/paris/paris.png"));
+        storageService.uploadPhoto(testGallerySports, testAlbumBaseball,  "pitching.png"      , readFile("images/citytrips_gallery/paris/paris.png"));
     }
 
     private static byte[] readFile(String resourcePath) {
@@ -191,10 +190,7 @@ abstract class AbstractAWSEnabledIntegrationTest {
         testGalleryCitytrips,
         testAlbumLondonId,
         testAlbumLondonName,
-        LocalDateTime.now(albumCreationDateTimeClock),
-        "PHOTOGALLERY#" + testGalleryCitytrips,
-        ("ALBUM#"+ testAlbumLondonId)
-
+        LocalDate.now(albumCreationDateTimeClock)
     );
 
     AlbumResponse testAlbumResponse = new AlbumResponse(
@@ -205,13 +201,13 @@ abstract class AbstractAWSEnabledIntegrationTest {
     GalleryAlbumResponse londonAlbumResponse = new GalleryAlbumResponse(
             testAlbumLondonName,
             testAlbumLondonId,
-            LocalDateTime.now(albumCreationDateTimeClock)
+            LocalDate.now(albumCreationDateTimeClock)
     );
 
     GalleryAlbumResponse parisAlbumResponse = new GalleryAlbumResponse(
             testAlbumParisName,
             testAlbumParisId,
-            LocalDateTime.now(albumCreationDateTimeClock)
+            LocalDate.now(albumCreationDateTimeClock)
     );
 
     GalleryResponse testGalleryResponse = new GalleryResponse(
