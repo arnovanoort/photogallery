@@ -16,19 +16,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
-public class S3Service {
+public class S3StorageService implements StorageService {
 
     private final String bucketName;
     private final S3Presigner s3Presigner;
     private final S3Client s3Client;
 
-    public S3Service(String bucketName, S3Client s3Client) {
+    public S3StorageService(String bucketName, S3Client s3Client) {
         this.bucketName = bucketName;
         this.s3Presigner = S3Presigner.create();
         this.s3Client = s3Client;
     }
 
-    public S3Service() {
+    public S3StorageService() {
         String awsRegion = System.getenv("AWS_REGION") != null ? System.getenv("AWS_REGION")  : "eu-west-1";
         this.bucketName = System.getenv("BUCKET_NAME") != null ? System.getenv("BUCKET_NAME") : "photogallery-data";
         this.s3Presigner = S3Presigner.create();
@@ -39,6 +39,7 @@ public class S3Service {
         return S3Client.builder().region(Region.of(awsRegion)).build();
     }
 
+    @Override
     public String generatePresignedUrl(String s3FileName) {
         if (s3FileName == null || s3FileName.isEmpty()) return null;
 
@@ -61,6 +62,7 @@ public class S3Service {
         }
     }
 
+    @Override
     public List<AlbumImport> listAlbums(String galleryName) {
         log.info("fetching folders in bucket: " + bucketName);
         List<AlbumImport> albums = new ArrayList<AlbumImport>();
@@ -118,7 +120,8 @@ public class S3Service {
         return photos;
     }
 
-    public void uploadPhoto(String testGalleryCitytrips, String album,  String filename, byte[] bytes) {
+    @Override
+    public void uploadPhoto(String testGalleryCitytrips, String album, String filename, byte[] bytes) {
         String key = testGalleryCitytrips + "/" + album + "/" + filename;
         log.info("uploading file " + key);
 

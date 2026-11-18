@@ -29,20 +29,21 @@ import java.util.stream.Collectors;
  *   ALBUM#123	        PHOTO#xyz	    Photo	N/A	                https://.../xyz.jpg
  */
 @Slf4j
-public class DynamoRepository {
+public class DynamoAlbumRepository implements AlbumRepository {
     private final DynamoDbEnhancedClient enhancedClient;
     private final String TABLE_NAME = System.getenv("TABLE_NAME") != null ? System.getenv("TABLE_NAME") : "PhotogalleryData";
 
-    public DynamoRepository() {
+    public DynamoAlbumRepository() {
         this.enhancedClient = DynamoDbEnhancedClient.builder()
                 .dynamoDbClient(DynamoDbClient.create())
                 .build();
     }
 
-    public DynamoRepository(DynamoDbEnhancedClient enhancedClient) {
+    public DynamoAlbumRepository(DynamoDbEnhancedClient enhancedClient) {
         this.enhancedClient = enhancedClient;
     }
 
+    @Override
     public List<Album> getAlbums(String gallery) {
         log.info("Querying DynamoDB table '{}' for gallery: {}", TABLE_NAME, gallery);
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
@@ -52,6 +53,7 @@ public class DynamoRepository {
         )).items().stream().collect(Collectors.toList());
     }
 
+    @Override
     public Optional<Album> getAlbum(String gallery, String albumId) {
         log.info("Querying DynamoDB table '{}' for albumId: {} under gallery: {}", TABLE_NAME, albumId, gallery);
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
@@ -60,6 +62,7 @@ public class DynamoRepository {
         );
     }
 
+    @Override
     public List<Photo> getPhotos(String albumId) {
         log.info("Querying DynamoDB table '{}' for photos under album: {}", TABLE_NAME, albumId);
         DynamoDbTable<Photo> photoTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Photo.class));
@@ -68,6 +71,7 @@ public class DynamoRepository {
                 .items().stream().collect(Collectors.toList());
     }
 
+    @Override
     public void createAlbum(Album album) {
         log.info("Saving album to DynamoDB table '{}': {}", TABLE_NAME, album.getAlbumId());
         DynamoDbTable<Album> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Album.class));
@@ -75,12 +79,13 @@ public class DynamoRepository {
     }
 
     private void createPhoto(Photo photo) {
-        log.info("Saving photo '{}' to DynamoDB table {}", photo.getS3FileName(), TABLE_NAME);
+        log.info("Saving photo '{}' to DynamoDB table {}", photo.getFilename(), TABLE_NAME);
         DynamoDbTable<Photo> albumTable = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Photo.class));
         albumTable.putItem(photo);
     }
 
     // TODO: too much logic in here: refactor
+    @Override
     public void importAlbums(AlbumImport albumImport, String gallery) {
         Album album = albumImport.toAlbum(gallery);
         createAlbum(album);
